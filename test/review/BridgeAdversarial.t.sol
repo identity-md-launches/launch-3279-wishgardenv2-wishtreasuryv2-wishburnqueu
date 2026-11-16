@@ -293,8 +293,8 @@ contract BridgeAdversarialTest is ReplacementTestBase, WalletGas {
         assembly ("memory-safe") { mstore(add(add(data, 32), offset), value) }
     }
 
-    /// @notice Independent model of the revised dispatch rule: min(maxAmount, pending) rounded down to a shared
-    ///         unit; below one candle's share only when it is the whole pending balance; `maxBatchId` is an
+    /// @notice Independent model of the revised dispatch rule: min(maxAmount, pending, frozen maxBatch) rounded
+    ///         down to a shared unit; below one candle's share only when it is the whole pending balance; `maxBatchId` is an
     ///         upper bound. The quote equals what dispatch does, and a refused dispatch changes nothing.
     function testFuzz_dispatchClampMinimumAndBatchBoundMatchModel(
         uint8 candleSeed,
@@ -302,8 +302,12 @@ contract BridgeAdversarialTest is ReplacementTestBase, WalletGas {
         uint256 requestSeed,
         uint8 boundSeed
     ) public {
-        uint256 n = bound(candleSeed, 1, 50);
-        _buy(n, 0, "");
+        uint256 n = bound(candleSeed, 1, 200); // up to 60 IMD pending: twice the 30 IMD frozen cap
+        for (uint256 left = n; left != 0;) {
+            uint256 chunk = left > 50 ? 50 : left;
+            _buy(chunk, 0, "");
+            left -= chunk;
+        }
         uint256 first = bound(firstSeed, 0, n * 0.3e18);
         if (first >= 0.3e18) {
             vm.prank(bob);
@@ -315,6 +319,7 @@ contract BridgeAdversarialTest is ReplacementTestBase, WalletGas {
         assertEq(pending + inTransit, n * 0.3e18);
         uint256 request = bound(requestSeed, 0, n * 0.6e18);
         uint256 capped = request > pending ? pending : request;
+        if (capped > MAX_BATCH) capped = MAX_BATCH;
         uint256 amount = capped / 1e12 * 1e12;
         bool valid = amount != 0 && (amount >= 0.3e18 || amount == pending);
         bool stale = boundSeed % 4 == 3;
@@ -348,6 +353,47 @@ contract BridgeAdversarialTest is ReplacementTestBase, WalletGas {
         assertEq(treasury.pendingBurn(), pending - amount);
         assertEq(treasury.inTransitBurn(), inTransit + amount);
         assertEq(treasury.pendingBurn() % 1e12, 0, "pending never holds unbridgeable dust");
+        assertLe(amount, MAX_BATCH);
         _assertAccounting(n);
+    }
+
+    /// @notice Finding 89832d9 settled: a third party asking for everything gets at most the frozen maximum
+    ///         batch per dispatch, which equals the bound the derived receiver checked; the rest stays pending.
+    function test_thirdPartyUnboundedDispatchIsSplitAtFrozenMaximum() public {
+        for (uint256 i; i < 4; ++i) {
+            _buy(50, 0, ""); // 60 IMD burn share pending
+        }
+        assertEq(treasury.maxBatch(), MAX_BATCH);
+        assertEq(receiver.maxBatch(), treasury.maxBatch(), "Ethereum cap is the receiver's checked bound");
+        (uint256 quoted,,,) = treasury.quoteDispatch(type(uint256).max);
+        assertEq(quoted, MAX_BATCH);
+        vm.deal(bob, 1 ether);
+        vm.startPrank(bob);
+        assertEq(treasury.dispatch{value: 0.001 ether}(type(uint256).max, type(uint256).max), 1);
+        assertEq(treasury.dispatch{value: 0.001 ether}(type(uint256).max, type(uint256).max), 2);
+        vm.expectRevert(IMDBurnQueue.InvalidBatch.selector);
+        treasury.dispatch{value: 0.001 ether}(type(uint256).max, type(uint256).max);
+        vm.stopPrank();
+        (, uint256 a1,) = treasury.batches(1);
+        (, uint256 a2,) = treasury.batches(2);
+        assertEq(a1, MAX_BATCH);
+        assertEq(a2, MAX_BATCH);
+        assertEq(treasury.pendingBurn(), 0);
+        assertEq(treasury.inTransitBurn(), 60e18);
+        // The frozen bound cannot be changed afterwards by the owner either.
+        vm.prank(OWNER);
+        vm.expectRevert(IMDBurnQueue.ConfigurationFrozen.selector);
+        treasury.freezeBridge(
+            address(ethEndpoint),
+            address(baseEndpoint),
+            address(adapter),
+            GAS,
+            GAS,
+            GAS,
+            1000e18,
+            SALT,
+            EVIDENCE
+        );
+        assertEq(treasury.maxBatch(), MAX_BATCH);
     }
 }

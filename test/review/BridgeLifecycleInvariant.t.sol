@@ -25,6 +25,8 @@ contract GardenLifecycleHandler is Test {
     uint256 public sent;
     uint256 public credited;
     uint256 public burned;
+    uint256 public realBaseBurned; // every IMD the receiver really destroyed (batches and surplus)
+    uint256 public surplus; // expected receiver.surplusBurned()
     uint256 public confirmed;
     uint256 public minted;
     uint256[3] public donated; // garden, treasury, Base receiver
@@ -130,7 +132,9 @@ contract GardenLifecycleHandler is Test {
         uint256 available = candles * 0.3e18 - sent;
         if (available < 1e12) return;
         uint256 request = uint256(portion) % (available - 1e12 + 1) + 1e12;
-        uint256 rounded = request / 1e12 * 1e12;
+        // Every caller is bounded by the frozen maximum batch (fixture: 30 IMD).
+        uint256 capped = request > treasury.maxBatch() ? treasury.maxBatch() : request;
+        uint256 rounded = capped / 1e12 * 1e12;
         uint256 id = shipments.length + 1;
         uint8 mode = failureSeed % 4;
         if (mode == 3) mode = 4;
@@ -178,15 +182,39 @@ contract GardenLifecycleHandler is Test {
         baseToken.setBurnMode(mode);
         address endpoint = receiver.endpoint();
         address adapter = receiver.baseOFT();
+        // The compose burns what is held up to its credit; any part an earlier burnSurplus already
+        // destroyed is drawn back out of the surplus counter, never burned twice. A failing token burn only
+        // matters when something is left to burn (modes 2/3 are supply-neutral fakes of a positive burn).
+        uint256 held = credited + donated[2] - realBaseBurned;
+        uint256 fromBalance = held < s.amount ? held : s.amount;
+        bool burnFails = mode == 1 || (mode != 0 && fromBalance != 0);
         if (s.burned) vm.expectRevert(BaseBurnReceiver.DuplicateBurn.selector);
-        else if (mode != 0) vm.expectRevert();
+        else if (burnFails) vm.expectRevert();
         vm.prank(endpoint);
         receiver.lzCompose(adapter, s.guid, _composeMessage(i), address(this), "");
-        if (!s.burned && mode == 0) {
+        if (!s.burned && !burnFails) {
             s.burned = true;
             burned += s.amount;
+            surplus -= s.amount - fromBalance;
+            realBaseBurned += fromBalance;
         }
         baseToken.setBurnMode(0);
+        vm.chainId(1);
+    }
+
+    /// @dev Anyone may burn everything the receiver holds: donations and credited-but-uncomposed batches.
+    function burnSurplus(uint8 actorSeed) public {
+        vm.chainId(8453);
+        uint256 held = credited + donated[2] - realBaseBurned;
+        vm.prank(actors[actorSeed % 3]);
+        if (held == 0) {
+            vm.expectRevert(BaseBurnReceiver.InexactBurn.selector);
+            receiver.burnSurplus();
+        } else {
+            assertEq(receiver.burnSurplus(), held);
+            surplus += held;
+            realBaseBurned += held;
+        }
         vm.chainId(1);
     }
 
@@ -264,8 +292,11 @@ contract GardenLifecycleHandler is Test {
         assertEq(treasury.unallocatedBalance(), donated[1]);
         assertEq(token.totalSupply(), initialSupply + minted - sent);
         assertEq(receiver.totalBurned(), burned);
-        assertEq(baseToken.balanceOf(address(receiver)), credited + donated[2] - burned);
-        assertEq(baseToken.totalSupply(), credited + donated[2] - burned);
+        assertEq(receiver.surplusBurned(), surplus);
+        assertEq(realBaseBurned, burned + surplus, "real Base burns = attributed batches + surplus");
+        assertEq(baseToken.balanceOf(address(receiver)), credited + donated[2] - realBaseBurned);
+        assertEq(baseToken.totalSupply(), credited + donated[2] - realBaseBurned);
+        assertLe(surplus, donated[2] + credited - burned, "surplus never exceeds unattributed custody");
         assertLe(confirmed, burned);
         assertLe(burned, credited);
         assertLe(credited, sent);
@@ -337,7 +368,8 @@ contract BridgeLifecycleInvariantTest is ReplacementTestBase {
         handler.buy(9, 6, 0, true);
         handler.dispatch(uint96(1e18), 0);
         handler.credit(0, 0, true);
-        bytes4[] memory selectors = new bytes4[](11);
+        bytes4[] memory selectors = new bytes4[](12);
+        selectors[11] = handler.burnSurplus.selector;
         selectors[0] = handler.buy.selector;
         selectors[1] = handler.donate.selector;
         selectors[2] = handler.withdraw.selector;
@@ -367,6 +399,11 @@ contract BridgeLifecycleInvariantTest is ReplacementTestBase {
         handler.assertModel();
         handler.credit(1, 0, true);
         handler.compose(1, 3); // supply-neutral counterfeit burn rolls back
+        handler.assertModel();
+        handler.burnSurplus(2); // front-runs nothing pending; burns the receiver donation
+        handler.credit(0, 0, true);
+        handler.burnSurplus(0); // burns batch 1's credit before its compose
+        handler.compose(0, 0); // completes from surplus, exactly once
         handler.assertModel();
         handler.compose(1, 0);
         handler.sendAck(1, true);

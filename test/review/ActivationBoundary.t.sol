@@ -19,8 +19,9 @@ contract ActivationBoundaryReviewTest is ReplacementTestBase {
         uint128 receiveGas = 300_000;
         uint128 composeGas = 300_000;
         uint128 ackGas = 300_000;
+        uint256 maxBatch = MAX_BATCH;
         bytes32 evidence = EVIDENCE;
-        uint8 field = fieldSeed % 14;
+        uint8 field = fieldSeed % 18;
         if (field == 0) ep = alice;
         else if (field == 1) remoteEp = address(0);
         else if (field == 2) peer = address(0);
@@ -34,10 +35,14 @@ contract ActivationBoundaryReviewTest is ReplacementTestBase {
         else if (field == 10) ackGas = 99_999;
         else if (field == 11) ackGas = 5_000_001;
         else if (field == 12) ep = address(new MockEndpoint(30102)); // not the token's endpoint / wrong eid
-        else peer = bob; // not the token's configured Base peer
+        else if (field == 13) peer = bob; // not the token's configured Base peer
+        else if (field == 14) maxBatch = 0.3e18 - 1e12; // below one candle's burn share
+        else if (field == 15) maxBatch = 30e18 + 1; // not a whole shared unit
+        else if (field == 16) maxBatch = (uint256(type(uint64).max) + 1) * 1e12; // above OFT shared units
+        else maxBatch = 0;
         vm.prank(OWNER);
         vm.expectRevert(IMDBurnQueue.InvalidBridgeConfiguration.selector);
-        fresh.freezeBridge(ep, remoteEp, peer, receiveGas, composeGas, ackGas, SALT, evidence);
+        fresh.freezeBridge(ep, remoteEp, peer, receiveGas, composeGas, ackGas, maxBatch, SALT, evidence);
         assertFalse(fresh.bridgeFrozen());
         assertFalse(fresh.purchasesEnabled());
         assertEq(fresh.endpoint(), address(0));
@@ -45,6 +50,7 @@ contract ActivationBoundaryReviewTest is ReplacementTestBase {
         assertEq(fresh.baseOFT(), address(0));
         assertEq(fresh.baseReceiver(), address(0));
         assertEq(fresh.acknowledgementGas(), 0);
+        assertEq(fresh.maxBatch(), 0);
         assertEq(fresh.receiverSalt(), bytes32(0));
         assertEq(fresh.verificationEvidence(), bytes32(0));
         assertEq(fresh.configurationHash(), bytes32(0));
@@ -59,44 +65,42 @@ contract ActivationBoundaryReviewTest is ReplacementTestBase {
             100_000,
             5_000_000,
             100_000,
+            MAX_BATCH,
             SALT,
             EVIDENCE
         );
         assertTrue(fresh.bridgeFrozen());
+        assertEq(fresh.maxBatch(), MAX_BATCH);
         assertFalse(fresh.receiverReady());
         assertFalse(fresh.purchasesEnabled());
         assertEq(
             fresh.baseReceiver(),
-            fresh.predictReceiver(address(baseEndpoint), address(adapter), 100_000, SALT)
+            fresh.predictReceiver(address(baseEndpoint), address(adapter), 100_000, MAX_BATCH, SALT)
         );
     }
 
     /// @notice The frozen destination is exactly the CREATE2 address of the compiled receiver bound to this
     ///         treasury; the prediction agrees with a real deployment through the deterministic deployer.
-    function testFuzz_derivedReceiverMatchesDeterministicDeployment(bytes32 salt, uint128 gasSeed) public {
+    function testFuzz_derivedReceiverMatchesDeterministicDeployment(
+        bytes32 salt,
+        uint128 gasSeed,
+        uint64 unitSeed
+    ) public {
         uint128 ackGas = uint128(bound(gasSeed, 100_000, 5_000_000));
+        uint256 maxBatch = bound(unitSeed, 300_000, type(uint64).max) * 1e12;
         WishGardenTreasury fresh = new WishGardenTreasury(OWNER);
-        address predicted = fresh.predictReceiver(address(baseEndpoint), address(adapter), ackGas, salt);
-        assertEq(_create2Receiver(address(fresh), ackGas, salt), predicted);
+        address predicted =
+            fresh.predictReceiver(address(baseEndpoint), address(adapter), ackGas, maxBatch, salt);
+        assertEq(_create2Receiver(address(fresh), ackGas, maxBatch, salt), predicted);
         BaseBurnReceiver deployed = BaseBurnReceiver(predicted);
         assertEq(deployed.ethereumQueue(), address(fresh));
         assertEq(deployed.acknowledgementGas(), ackGas);
+        assertEq(deployed.maxBatch(), maxBatch);
         assertEq(fresh.receiverCreationCodeHash(), keccak256(type(BaseBurnReceiver).creationCode));
-        // Any change of queue, gas, salt or endpoints moves the address.
-        assertTrue(
-            treasury.predictReceiver(address(baseEndpoint), address(adapter), ackGas, salt) != predicted
-        );
-        assertTrue(fresh.predictReceiver(address(baseEndpoint), address(adapter), ackGas, ~salt) != predicted);
-        assertTrue(fresh.predictReceiver(address(ethEndpoint), address(adapter), ackGas, salt) != predicted);
-        uint128 otherGas = ackGas == 5_000_000 ? ackGas - 1 : ackGas + 1;
-        assertTrue(
-            fresh.predictReceiver(address(baseEndpoint), address(adapter), otherGas, salt) != predicted
-        );
-        vm.prank(OWNER);
-        fresh.freezeBridge(
-            address(ethEndpoint), address(baseEndpoint), address(adapter), GAS, GAS, ackGas, salt, EVIDENCE
-        );
+        _assertIdentityMoves(fresh, ackGas, maxBatch, salt, predicted);
+        _freezeWith(fresh, ackGas, maxBatch, salt);
         assertEq(fresh.baseReceiver(), predicted);
+        assertEq(fresh.maxBatch(), maxBatch);
         assertTrue(fresh.allowInitializePath(Origin(30184, bytes32(uint256(uint160(predicted))), 1)));
     }
 
@@ -108,7 +112,7 @@ contract ActivationBoundaryReviewTest is ReplacementTestBase {
         uint8 variant = variantSeed % 3;
         if (variant == 0) {
             impostor = new BaseBurnReceiver(
-                address(baseEndpoint), address(adapter), address(fresh), 30101, 30184, GAS
+                address(baseEndpoint), address(adapter), address(fresh), 30101, 30184, GAS, MAX_BATCH
             );
         } else if (variant == 1) {
             impostor = _deployReceiver(address(fresh), keccak256("another salt"));
@@ -210,6 +214,7 @@ contract ActivationBoundaryReviewTest is ReplacementTestBase {
             GAS,
             GAS,
             GAS,
+            MAX_BATCH,
             keccak256("x"),
             EVIDENCE
         );
@@ -224,6 +229,7 @@ contract ActivationBoundaryReviewTest is ReplacementTestBase {
             GAS,
             GAS,
             GAS,
+            MAX_BATCH,
             keccak256("x"),
             EVIDENCE
         );
@@ -232,6 +238,46 @@ contract ActivationBoundaryReviewTest is ReplacementTestBase {
         vm.prank(OWNER);
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, OWNER));
         fresh.activatePurchases();
+    }
+
+    function _freezeWith(WishGardenTreasury fresh, uint128 ackGas, uint256 maxBatch, bytes32 salt) private {
+        vm.prank(OWNER);
+        fresh.freezeBridge(
+            address(ethEndpoint),
+            address(baseEndpoint),
+            address(adapter),
+            GAS,
+            GAS,
+            ackGas,
+            maxBatch,
+            salt,
+            EVIDENCE
+        );
+    }
+
+    /// @dev Any change of queue, gas, maximum batch, salt or endpoints moves the derived address.
+    function _assertIdentityMoves(
+        WishGardenTreasury fresh,
+        uint128 ackGas,
+        uint256 maxBatch,
+        bytes32 salt,
+        address predicted
+    ) private view {
+        address ep = address(baseEndpoint);
+        address peer = address(adapter);
+        assertTrue(treasury.predictReceiver(ep, peer, ackGas, maxBatch, salt) != predicted);
+        assertTrue(fresh.predictReceiver(ep, peer, ackGas, maxBatch, ~salt) != predicted);
+        assertTrue(fresh.predictReceiver(address(ethEndpoint), peer, ackGas, maxBatch, salt) != predicted);
+        assertTrue(
+            fresh.predictReceiver(ep, peer, ackGas == 5_000_000 ? ackGas - 1 : ackGas + 1, maxBatch, salt)
+                != predicted
+        );
+        assertTrue(
+            fresh.predictReceiver(
+                ep, peer, ackGas, maxBatch == 300_000e12 ? maxBatch + 1e12 : maxBatch - 1e12, salt
+            ) != predicted,
+            "the frozen maximum batch is part of the receiver identity"
+        );
     }
 
     function _freshFrozen()
@@ -245,16 +291,29 @@ contract ActivationBoundaryReviewTest is ReplacementTestBase {
         vm.startPrank(OWNER);
         fresh.bindGarden(address(newGarden));
         fresh.freezeBridge(
-            address(ethEndpoint), address(baseEndpoint), address(adapter), GAS, GAS, GAS, SALT, EVIDENCE
+            address(ethEndpoint),
+            address(baseEndpoint),
+            address(adapter),
+            GAS,
+            GAS,
+            GAS,
+            MAX_BATCH,
+            SALT,
+            EVIDENCE
         );
         vm.stopPrank();
         assertEq(fresh.baseReceiver(), address(remote));
     }
 
-    function _create2Receiver(address queue, uint128 ackGas, bytes32 salt) private returns (address) {
+    function _create2Receiver(address queue, uint128 ackGas, uint256 maxBatch, bytes32 salt)
+        private
+        returns (address)
+    {
         bytes memory initCode = bytes.concat(
             type(BaseBurnReceiver).creationCode,
-            abi.encode(address(baseEndpoint), address(adapter), queue, uint32(30101), uint32(30184), ackGas)
+            abi.encode(
+                address(baseEndpoint), address(adapter), queue, uint32(30101), uint32(30184), ackGas, maxBatch
+            )
         );
         (bool ok, bytes memory returned) = CREATE2_DEPLOYER.call(bytes.concat(salt, initCode));
         assertTrue(ok);

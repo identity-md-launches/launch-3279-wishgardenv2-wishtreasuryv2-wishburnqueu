@@ -23,21 +23,21 @@ interface IReviewOFTReceiver {
 }
 
 /// @dev Transport is a mock. The token/adapter themselves execute the supplied deployed bytecode.
+/// @dev Uses MockEndpoint.sendCompose (which requires index 0 and records target/guid/message); the source of
+///      the compose call is checked with vm.expectCall in the tests.
 contract ReviewComposeEndpoint is MockEndpoint {
-    address public composeTarget;
-    bytes32 public composeGuid;
-    uint16 public composeIndex;
-    bytes public composeMessage;
-    address public composeFrom;
-
     constructor() MockEndpoint(30184) {}
 
-    function sendCompose(address to, bytes32 guid, uint16 index, bytes calldata message) external {
-        composeFrom = msg.sender;
-        composeTarget = to;
-        composeGuid = guid;
-        composeIndex = index;
-        composeMessage = message;
+    function composeTarget() external view returns (address) {
+        return lastComposeTo;
+    }
+
+    function composeGuid() external view returns (bytes32) {
+        return lastComposeGuid;
+    }
+
+    function composeMessage() external view returns (bytes memory) {
+        return lastComposeMessage;
     }
 }
 
@@ -69,7 +69,8 @@ contract BaseAdapterRuntimeReviewTest is Test, WalletGas {
         vm.prank(OWNER);
         IReviewOFTReceiver(BASE_ADAPTER).setPeer(30101, bytes32(uint256(uint160(IMD))));
         queue = new WishGardenTreasury(OWNER);
-        receiver = new BaseBurnReceiver(endpointAddress, BASE_ADAPTER, address(queue), 30101, 30184, 300_000);
+        receiver =
+            new BaseBurnReceiver(endpointAddress, BASE_ADAPTER, address(queue), 30101, 30184, 300_000, 30e18);
         assertEq(BASE_IMD.codehash, 0x15021fda4613ae853a7e3199f62df75e6f547ca11d32df53c0b1616f4a80ef4f);
         assertEq(BASE_ADAPTER.codehash, 0x1ad0c62178c048836ae25bc3c56a69579ae1ac8498209281c36acd344063e4da);
     }
@@ -78,15 +79,23 @@ contract BaseAdapterRuntimeReviewTest is Test, WalletGas {
         deal(BASE_IMD, BASE_ADAPTER, 3e18, true);
         deal(BASE_IMD, OWNER, 5e18, true);
         uint256 supplyBefore = token.totalSupply();
+        // The adapter itself queues the compose for the receiver, with index 0, for this guid.
+        vm.expectCall(
+            address(endpoint),
+            abi.encodeWithSelector(
+                bytes4(keccak256("sendCompose(address,bytes32,uint16,bytes)")),
+                address(receiver),
+                GUID,
+                uint16(0)
+            )
+        );
         _deliverToAdapter(1, 3e18);
         assertEq(token.balanceOf(BASE_ADAPTER), 0);
         assertEq(token.balanceOf(address(receiver)), 3e18);
         assertEq(token.totalSupply(), supplyBefore, "adapter unlock must not pretend to be the final burn");
         assertEq(receiver.totalBurned(), 0);
-        assertEq(endpoint.composeFrom(), BASE_ADAPTER);
         assertEq(endpoint.composeTarget(), address(receiver));
         assertEq(endpoint.composeGuid(), GUID);
-        assertEq(endpoint.composeIndex(), 0);
         bytes memory message = endpoint.composeMessage();
         assertEq(
             message,
