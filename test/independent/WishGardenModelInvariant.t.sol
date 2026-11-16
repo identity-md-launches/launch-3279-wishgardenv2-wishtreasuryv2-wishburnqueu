@@ -3,8 +3,8 @@ pragma solidity 0.8.26;
 
 import {Test} from "forge-std/Test.sol";
 import {GardenTestBase, IIdentityNFT} from "../helpers/GardenTestBase.sol";
-import {WishGarden} from "src/WishGarden.sol";
-import {WishGardenTreasury} from "src/WishGardenTreasury.sol";
+import {LegacyWishGarden as WishGarden} from "../legacy-src/LegacyWishGarden.sol";
+import {LegacyWishGardenTreasury as WishGardenTreasury} from "../legacy-src/LegacyWishGardenTreasury.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";

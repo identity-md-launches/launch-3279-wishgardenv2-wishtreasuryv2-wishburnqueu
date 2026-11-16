@@ -1,0 +1,261 @@
+{
+  "observedAtUTC": "2026-11-16T09:37:38.396218+00:00",
+  "status": "read-only observations, not an activation approval or end-to-end bridge proof",
+  "blocks": {
+    "1": {
+      "block": "0x1933d72",
+      "blockHash": "0x742d65a78c8c59f446e7e4381960943911b99b4754f689133ae35b7e37dd252e"
+    },
+    "8453": {
+      "block": "0x377693b",
+      "blockHash": "0x37346fc53b46edbc266aad0082673d30037ab42fa04b6095268fb4956281ac89"
+    }
+  },
+  "ethereumEndpoint": "0x1a44076050125825900e736c501f859c50fe728c",
+  "ethereumEid": 30101,
+  "baseAdapter": "0xab152db8aac047b6757ffcf495ffe88d7712690a",
+  "baseEndpoint": "0x1a44076050125825900e736c501f859c50fe728c",
+  "baseEid": 30184,
+  "code": [
+    {
+      "chainId": 1,
+      "address": "0xd34a99bc0f67ae1bbd63c660e6d0b0dd03e263b7",
+      "bytes": 22990,
+      "keccak256": "0x79a1ae149d27d4aae006d4dd75cb834222c9623799bbf34359428aaf66fec3bf"
+    },
+    {
+      "chainId": 1,
+      "address": "0x0000eC93127BAA929E58E97dd0095A2BFb38ec1D",
+      "bytes": 5231,
+      "keccak256": "0x68d046e0bfb8185d9db0a9a7ed57420f22dfc38321c9c91453a001a47668c530"
+    },
+    {
+      "chainId": 1,
+      "address": "0xaabd6a747359f5478803efa7b51e929e62ec4ca2",
+      "bytes": 7854,
+      "keccak256": "0x903791eb21d4f6aa6cd990358de7acf4b2d557a287c910404a7a0adfc1885063"
+    },
+    {
+      "chainId": 1,
+      "address": "0x929a062e0ab6266534f1ce573ba34ca7980207aa",
+      "bytes": 6508,
+      "keccak256": "0x65dd0fb68a6cb2eee0403c7d19ace3827c84227d627a02f6a7b659b1ee9357f5"
+    },
+    {
+      "chainId": 1,
+      "address": "0x1a44076050125825900e736c501f859c50fe728c",
+      "bytes": 24005,
+      "keccak256": "0xb747fab405fadff7fc9d8adb083d18d3454ac58ffdefe9121ed5f008f57d93e0"
+    },
+    {
+      "chainId": 8453,
+      "address": "0xFF0C532FDB8Cd566Ae169C1CB157ff2Bdc83E105",
+      "bytes": 12331,
+      "keccak256": "0x15021fda4613ae853a7e3199f62df75e6f547ca11d32df53c0b1616f4a80ef4f"
+    },
+    {
+      "chainId": 8453,
+      "address": "0xab152db8aac047b6757ffcf495ffe88d7712690a",
+      "bytes": 17717,
+      "keccak256": "0x1ad0c62178c048836ae25bc3c56a69579ae1ac8498209281c36acd344063e4da"
+    },
+    {
+      "chainId": 8453,
+      "address": "0x1a44076050125825900e736c501f859c50fe728c",
+      "bytes": 24005,
+      "keccak256": "0x086c2e9e37f5bdaf45013882cf40f7a43b35c879302ff1ad4a4010d09b4d7237"
+    }
+  ],
+  "calls": [
+    {
+      "chainId": 1,
+      "address": "0x1a44076050125825900e736c501f859c50fe728c",
+      "signature": "eid()",
+      "args": [],
+      "calldata": "0x416ecebf",
+      "result": "0x0000000000000000000000000000000000000000000000000000000000007595"
+    },
+    {
+      "chainId": 1,
+      "address": "0x929a062e0ab6266534f1ce573ba34ca7980207aa",
+      "signature": "burnSink()",
+      "args": [],
+      "calldata": "0x41becbce",
+      "result": "0x000000000000000000000000841799c792e17afade8b44fb816adbd9d24a8e91"
+    },
+    {
+      "chainId": 1,
+      "address": "0x929a062e0ab6266534f1ce573ba34ca7980207aa",
+      "signature": "garden()",
+      "args": [],
+      "calldata": "0x56ba88b8",
+      "result": "0x0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "chainId": 1,
+      "address": "0x929a062e0ab6266534f1ce573ba34ca7980207aa",
+      "signature": "totalPayments()",
+      "args": [],
+      "calldata": "0x005b4487",
+      "result": "0x0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "chainId": 1,
+      "address": "0xaabd6a747359f5478803efa7b51e929e62ec4ca2",
+      "signature": "collectionConfirmed()",
+      "args": [],
+      "calldata": "0x0672dbf9",
+      "result": "0x0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "chainId": 1,
+      "address": "0xaabd6a747359f5478803efa7b51e929e62ec4ca2",
+      "signature": "freeCandles()",
+      "args": [],
+      "calldata": "0x979d16b3",
+      "result": "0x0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "chainId": 1,
+      "address": "0xaabd6a747359f5478803efa7b51e929e62ec4ca2",
+      "signature": "totalCandles()",
+      "args": [],
+      "calldata": "0x5542a516",
+      "result": "0x0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "chainId": 1,
+      "address": "0xd34a99bc0f67ae1bbd63c660e6d0b0dd03e263b7",
+      "signature": "approvalRequired()",
+      "args": [],
+      "calldata": "0x9f68b964",
+      "result": "0x0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "chainId": 1,
+      "address": "0xd34a99bc0f67ae1bbd63c660e6d0b0dd03e263b7",
+      "signature": "decimalConversionRate()",
+      "args": [],
+      "calldata": "0x963efcaa",
+      "result": "0x000000000000000000000000000000000000000000000000000000e8d4a51000"
+    },
+    {
+      "chainId": 1,
+      "address": "0xd34a99bc0f67ae1bbd63c660e6d0b0dd03e263b7",
+      "signature": "decimals()",
+      "args": [],
+      "calldata": "0x313ce567",
+      "result": "0x0000000000000000000000000000000000000000000000000000000000000012"
+    },
+    {
+      "chainId": 1,
+      "address": "0xd34a99bc0f67ae1bbd63c660e6d0b0dd03e263b7",
+      "signature": "endpoint()",
+      "args": [],
+      "calldata": "0x5e280f11",
+      "result": "0x0000000000000000000000001a44076050125825900e736c501f859c50fe728c"
+    },
+    {
+      "chainId": 1,
+      "address": "0xd34a99bc0f67ae1bbd63c660e6d0b0dd03e263b7",
+      "signature": "oftVersion()",
+      "args": [],
+      "calldata": "0x156a0d0f",
+      "result": "0x02e49c2c000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001"
+    },
+    {
+      "chainId": 1,
+      "address": "0xd34a99bc0f67ae1bbd63c660e6d0b0dd03e263b7",
+      "signature": "peers(uint32)",
+      "args": [
+        30184
+      ],
+      "calldata": "0xbb0b6a5300000000000000000000000000000000000000000000000000000000000075e8",
+      "result": "0x000000000000000000000000ab152db8aac047b6757ffcf495ffe88d7712690a"
+    },
+    {
+      "chainId": 8453,
+      "address": "0x1a44076050125825900e736c501f859c50fe728c",
+      "signature": "eid()",
+      "args": [],
+      "calldata": "0x416ecebf",
+      "result": "0x00000000000000000000000000000000000000000000000000000000000075e8"
+    },
+    {
+      "chainId": 8453,
+      "address": "0xab152db8aac047b6757ffcf495ffe88d7712690a",
+      "signature": "approvalRequired()",
+      "args": [],
+      "calldata": "0x9f68b964",
+      "result": "0x0000000000000000000000000000000000000000000000000000000000000001"
+    },
+    {
+      "chainId": 8453,
+      "address": "0xab152db8aac047b6757ffcf495ffe88d7712690a",
+      "signature": "decimalConversionRate()",
+      "args": [],
+      "calldata": "0x963efcaa",
+      "result": "0x000000000000000000000000000000000000000000000000000000e8d4a51000"
+    },
+    {
+      "chainId": 8453,
+      "address": "0xab152db8aac047b6757ffcf495ffe88d7712690a",
+      "signature": "endpoint()",
+      "args": [],
+      "calldata": "0x5e280f11",
+      "result": "0x0000000000000000000000001a44076050125825900e736c501f859c50fe728c"
+    },
+    {
+      "chainId": 8453,
+      "address": "0xab152db8aac047b6757ffcf495ffe88d7712690a",
+      "signature": "oftVersion()",
+      "args": [],
+      "calldata": "0x156a0d0f",
+      "result": "0x02e49c2c000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001"
+    },
+    {
+      "chainId": 8453,
+      "address": "0xab152db8aac047b6757ffcf495ffe88d7712690a",
+      "signature": "peers(uint32)",
+      "args": [
+        30101
+      ],
+      "calldata": "0xbb0b6a530000000000000000000000000000000000000000000000000000000000007595",
+      "result": "0x000000000000000000000000d34a99bc0f67ae1bbd63c660e6d0b0dd03e263b7"
+    },
+    {
+      "chainId": 8453,
+      "address": "0xab152db8aac047b6757ffcf495ffe88d7712690a",
+      "signature": "token()",
+      "args": [],
+      "calldata": "0xfc0c546a",
+      "result": "0x000000000000000000000000ff0c532fdb8cd566ae169c1cb157ff2bdc83e105"
+    },
+    {
+      "chainId": 8453,
+      "address": "0xFF0C532FDB8Cd566Ae169C1CB157ff2Bdc83E105",
+      "signature": "balanceOf(address)",
+      "args": [
+        "0xab152db8aac047b6757ffcf495ffe88d7712690a"
+      ],
+      "calldata": "0x70a08231000000000000000000000000ab152db8aac047b6757ffcf495ffe88d7712690a",
+      "result": "0x000000000000000000000000000000000000000000038fbb17a596eade35a000"
+    },
+    {
+      "chainId": 8453,
+      "address": "0xFF0C532FDB8Cd566Ae169C1CB157ff2Bdc83E105",
+      "signature": "decimals()",
+      "args": [],
+      "calldata": "0x313ce567",
+      "result": "0x0000000000000000000000000000000000000000000000000000000000000012"
+    }
+  ],
+  "openRequirements": [
+    "Confirmed Ethereum application receipt, published source commit and explorer verification",
+    "Owner deployment and verification of BaseBurnReceiver for the confirmed Ethereum treasury",
+    "Default send/receive libraries, DVNs, confirmations and executor settings for both OFT and acknowledgement paths",
+    "Actual destination balance delta, reserve liquidity and fee/tax exclusions for the deployed Base receiver",
+    "Current native fee quotes, OFT compose encoding/options and gas simulation using final addresses",
+    "Authenticated Base readiness receipt and owner activation only after review of all evidence"
+  ]
+}

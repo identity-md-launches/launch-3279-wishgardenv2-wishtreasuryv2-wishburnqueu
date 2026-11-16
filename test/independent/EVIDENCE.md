@@ -1,3 +1,5 @@
+> Historical legacy regression suite. These tests now import archived `Legacy*` fixtures. They retain the original review evidence; they do not certify the replacement contracts. Replacement coverage and limits are in `docs/validation.md` and `test/replacement/`.
+
 # Independent contract tests
 
 This contribution adds tests only. The application contracts, configuration, dependency fixtures,

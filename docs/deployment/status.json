@@ -1,0 +1,19 @@
+{
+  "status": "source-ready; deployment and publication pending launch service",
+  "chainId": 1,
+  "owner": "0x48E4E74fE1d0c14404cEB57B9fec5b21329C6ec9",
+  "purchasesAtDeployment": "disabled",
+  "ethereumApplications": [
+    "WishGardenTreasury",
+    "WishGarden",
+    "LegacyWishRegistry"
+  ],
+  "basePackage": "base/artifacts/BaseBurnReceiver.deployment.json",
+  "baseDeployment": "separate owner action; excluded from Ethereum launch manifest",
+  "confirmedAddresses": null,
+  "deploymentTransaction": null,
+  "sourceCommit": null,
+  "githubPublication": null,
+  "explorerVerification": null,
+  "note": "Null means not yet supplied by the deployment/publication service, never a deployable address or placeholder constructor argument."
+}

@@ -30,6 +30,19 @@
   },
   {
     "type": "function",
+    "name": "CANDLE_ID_BASE",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "CANDLE_PRICE",
     "inputs": [],
     "outputs": [
@@ -50,19 +63,6 @@
         "name": "",
         "type": "uint256",
         "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "COLLECTION_CODE_HASH",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes32",
-        "internalType": "bytes32"
       }
     ],
     "stateMutability": "view"
@@ -121,6 +121,19 @@
   },
   {
     "type": "function",
+    "name": "LEGACY_GARDEN",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "MAX_BATCH_SIZE",
     "inputs": [],
     "outputs": [
@@ -141,19 +154,6 @@
         "name": "",
         "type": "uint256",
         "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "OFFICIAL_COLLECTION",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
       }
     ],
     "stateMutability": "view"
@@ -204,6 +204,40 @@
         "name": "style",
         "type": "uint8",
         "internalType": "uint8"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "firstCandleId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "buyCandlesWithWish",
+    "inputs": [
+      {
+        "name": "quantity",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "style",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "text",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "publicForeverAcknowledged",
+        "type": "bool",
+        "internalType": "bool"
       }
     ],
     "outputs": [
@@ -270,118 +304,19 @@
   },
   {
     "type": "function",
-    "name": "claimFreeCandle",
+    "name": "candleKey",
     "inputs": [
-      {
-        "name": "tokenId",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "style",
-        "type": "uint8",
-        "internalType": "uint8"
-      }
-    ],
-    "outputs": [
       {
         "name": "candleId",
         "type": "uint256",
         "internalType": "uint256"
       }
     ],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "claimFreeCandles",
-    "inputs": [
-      {
-        "name": "tokenIds",
-        "type": "uint256[]",
-        "internalType": "uint256[]"
-      },
-      {
-        "name": "style",
-        "type": "uint8",
-        "internalType": "uint8"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "firstCandleId",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "collectionConfirmed",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bool",
-        "internalType": "bool"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "collectionEvidenceHash",
-    "inputs": [],
     "outputs": [
       {
         "name": "",
         "type": "bytes32",
         "internalType": "bytes32"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "confirmOfficialCollection",
-    "inputs": [
-      {
-        "name": "evidenceHash",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "freeCandles",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "freeClaimsStatus",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "enabled",
-        "type": "bool",
-        "internalType": "bool"
-      },
-      {
-        "name": "reason",
-        "type": "string",
-        "internalType": "string"
       }
     ],
     "stateMutability": "view"
@@ -500,25 +435,6 @@
   },
   {
     "type": "function",
-    "name": "nftClaimedCandle",
-    "inputs": [
-      {
-        "name": "tokenId",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "candleId",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "owner",
     "inputs": [],
     "outputs": [
@@ -598,6 +514,49 @@
         "name": "",
         "type": "address",
         "internalType": "contract WishGardenTreasury"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "wishBatch",
+    "inputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "wishOf",
+    "inputs": [
+      {
+        "name": "candleId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "author",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "text",
+        "type": "string",
+        "internalType": "string"
       }
     ],
     "stateMutability": "view"
@@ -690,68 +649,6 @@
   },
   {
     "type": "event",
-    "name": "FreeCandleClaimed",
-    "inputs": [
-      {
-        "name": "purchaser",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "tokenId",
-        "type": "uint256",
-        "indexed": true,
-        "internalType": "uint256"
-      },
-      {
-        "name": "candleId",
-        "type": "uint256",
-        "indexed": true,
-        "internalType": "uint256"
-      },
-      {
-        "name": "collection",
-        "type": "address",
-        "indexed": false,
-        "internalType": "address"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "OfficialCollectionConfirmed",
-    "inputs": [
-      {
-        "name": "collection",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "confirmedBy",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "codeHash",
-        "type": "bytes32",
-        "indexed": false,
-        "internalType": "bytes32"
-      },
-      {
-        "name": "evidenceHash",
-        "type": "bytes32",
-        "indexed": false,
-        "internalType": "bytes32"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
     "name": "OwnershipTransferStarted",
     "inputs": [
       {
@@ -789,6 +686,37 @@
     "anonymous": false
   },
   {
+    "type": "event",
+    "name": "WishPublished",
+    "inputs": [
+      {
+        "name": "firstCandleId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "author",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "quantity",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "text",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      }
+    ],
+    "anonymous": false
+  },
+  {
     "type": "error",
     "name": "CandleNotFound",
     "inputs": [
@@ -798,21 +726,6 @@
         "internalType": "uint256"
       }
     ]
-  },
-  {
-    "type": "error",
-    "name": "CollectionAlreadyConfirmed",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "CollectionNotConfirmed",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "CollectionVerificationFailed",
-    "inputs": []
   },
   {
     "type": "error",
@@ -858,30 +771,19 @@
   },
   {
     "type": "error",
-    "name": "MissingVerificationEvidence",
+    "name": "InvalidUTF8",
+    "inputs": [
+      {
+        "name": "byteOffset",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NamespaceExhausted",
     "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "NFTAlreadyClaimed",
-    "inputs": [
-      {
-        "name": "tokenId",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "NotNFTOwner",
-    "inputs": [
-      {
-        "name": "tokenId",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ]
   },
   {
     "type": "error",
@@ -908,6 +810,16 @@
   {
     "type": "error",
     "name": "OwnershipRequired",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "PublicAcknowledgementRequired",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "PurchasesDisabled",
     "inputs": []
   },
   {
@@ -944,11 +856,6 @@
   },
   {
     "type": "error",
-    "name": "TreasuryNotConfigured",
-    "inputs": []
-  },
-  {
-    "type": "error",
     "name": "UnexpectedIMDDecimals",
     "inputs": [
       {
@@ -957,6 +864,11 @@
         "internalType": "uint8"
       }
     ]
+  },
+  {
+    "type": "error",
+    "name": "WishTooLong",
+    "inputs": []
   },
   {
     "type": "error",

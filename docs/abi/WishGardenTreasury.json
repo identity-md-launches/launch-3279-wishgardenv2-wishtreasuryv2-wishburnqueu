@@ -6,24 +6,22 @@
         "name": "owner_",
         "type": "address",
         "internalType": "address"
-      },
-      {
-        "name": "burnSink_",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "operationsRecipient_",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "founderRecipient_",
-        "type": "address",
-        "internalType": "address"
       }
     ],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "BRIDGE_UNIT",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -164,6 +162,130 @@
   },
   {
     "type": "function",
+    "name": "activatePurchases",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "allowInitializePath",
+    "inputs": [
+      {
+        "name": "origin",
+        "type": "tuple",
+        "internalType": "struct Origin",
+        "components": [
+          {
+            "name": "srcEid",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "sender",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "nonce",
+            "type": "uint64",
+            "internalType": "uint64"
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "baseEid",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "baseOFT",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "baseReceiver",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "batchCount",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "batches",
+    "inputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "guid",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "confirmed",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "bindGarden",
     "inputs": [
       {
@@ -177,7 +299,109 @@
   },
   {
     "type": "function",
-    "name": "burnSink",
+    "name": "bridgeFrozen",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "bridgeOptions",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "bridgeTokenCodeHash",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "configurationHash",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "confirmedBurn",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "dispatch",
+    "inputs": [
+      {
+        "name": "requestedAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "expectedBatchId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "batchId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "payable"
+  },
+  {
+    "type": "function",
+    "name": "ecosystemBalance",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "endpoint",
     "inputs": [],
     "outputs": [
       {
@@ -190,39 +414,26 @@
   },
   {
     "type": "function",
-    "name": "claimFounder",
-    "inputs": [
-      {
-        "name": "amount",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "claimOperations",
-    "inputs": [
-      {
-        "name": "amount",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "ecosystemBalance",
+    "name": "endpointCodeHash",
     "inputs": [],
     "outputs": [
       {
         "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "ethereumEid",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint32",
+        "internalType": "uint32"
       }
     ],
     "stateMutability": "view"
@@ -242,16 +453,51 @@
   },
   {
     "type": "function",
-    "name": "founderRecipient",
-    "inputs": [],
-    "outputs": [
+    "name": "freezeBridge",
+    "inputs": [
       {
-        "name": "",
+        "name": "endpoint_",
         "type": "address",
         "internalType": "address"
+      },
+      {
+        "name": "ethereumEid_",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "baseEid_",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "baseOFT_",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "receiver_",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "receiveGas_",
+        "type": "uint128",
+        "internalType": "uint128"
+      },
+      {
+        "name": "composeGas_",
+        "type": "uint128",
+        "internalType": "uint128"
+      },
+      {
+        "name": "evidence_",
+        "type": "bytes32",
+        "internalType": "bytes32"
       }
     ],
-    "stateMutability": "view"
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -268,7 +514,7 @@
   },
   {
     "type": "function",
-    "name": "operationsBalance",
+    "name": "inTransitBurn",
     "inputs": [],
     "outputs": [
       {
@@ -281,13 +527,87 @@
   },
   {
     "type": "function",
-    "name": "operationsRecipient",
-    "inputs": [],
-    "outputs": [
+    "name": "lzReceive",
+    "inputs": [
+      {
+        "name": "origin",
+        "type": "tuple",
+        "internalType": "struct Origin",
+        "components": [
+          {
+            "name": "srcEid",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "sender",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "nonce",
+            "type": "uint64",
+            "internalType": "uint64"
+          }
+        ]
+      },
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "message",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
       {
         "name": "",
         "type": "address",
         "internalType": "address"
+      },
+      {
+        "name": "",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "payable"
+  },
+  {
+    "type": "function",
+    "name": "nextNonce",
+    "inputs": [
+      {
+        "name": "",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "operationsBalance",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "stateMutability": "view"
@@ -307,6 +627,32 @@
   },
   {
     "type": "function",
+    "name": "pendingBurn",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "pendingDust",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "pendingOwner",
     "inputs": [],
     "outputs": [
@@ -314,6 +660,66 @@
         "name": "",
         "type": "address",
         "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "purchasesEnabled",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "quoteDispatch",
+    "inputs": [
+      {
+        "name": "requestedAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "dust",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "nativeFee",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "nextBatchId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "receiverReady",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
       }
     ],
     "stateMutability": "view"
@@ -350,6 +756,32 @@
   },
   {
     "type": "function",
+    "name": "revenueBalance",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "totalBurnAllocated",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "totalEcosystemWithdrawn",
     "inputs": [],
     "outputs": [
@@ -363,7 +795,7 @@
   },
   {
     "type": "function",
-    "name": "totalFounderClaimed",
+    "name": "totalFounderWithdrawn",
     "inputs": [],
     "outputs": [
       {
@@ -376,20 +808,7 @@
   },
   {
     "type": "function",
-    "name": "totalIMDLocked",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "totalOperationsClaimed",
+    "name": "totalOperationsWithdrawn",
     "inputs": [],
     "outputs": [
       {
@@ -424,7 +843,7 @@
         "internalType": "uint256"
       }
     ],
-    "stateMutability": "pure"
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -454,6 +873,19 @@
   },
   {
     "type": "function",
+    "name": "verificationEvidence",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "withdrawEcosystem",
     "inputs": [
       {
@@ -469,6 +901,67 @@
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "withdrawFounder",
+    "inputs": [
+      {
+        "name": "destination",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "withdrawOperations",
+    "inputs": [
+      {
+        "name": "destination",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "event",
+    "name": "BridgeFrozen",
+    "inputs": [
+      {
+        "name": "configurationHash",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "evidence",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "receiver",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
   },
   {
     "type": "event",
@@ -503,13 +996,44 @@
   },
   {
     "type": "event",
-    "name": "BurnAllocationLocked",
+    "name": "BurnConfirmed",
     "inputs": [
       {
-        "name": "sink",
-        "type": "address",
+        "name": "batchId",
+        "type": "uint256",
         "indexed": true,
-        "internalType": "address"
+        "internalType": "uint256"
+      },
+      {
+        "name": "guid",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "BurnDispatched",
+    "inputs": [
+      {
+        "name": "batchId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "guid",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
       },
       {
         "name": "amount",
@@ -518,7 +1042,7 @@
         "internalType": "uint256"
       },
       {
-        "name": "cumulativeLocked",
+        "name": "retainedDust",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -606,7 +1130,7 @@
         "internalType": "uint256"
       },
       {
-        "name": "locked",
+        "name": "pendingBurn",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -633,18 +1157,52 @@
     "anonymous": false
   },
   {
+    "type": "event",
+    "name": "PurchasesActivated",
+    "inputs": [],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ReceiverReady",
+    "inputs": [
+      {
+        "name": "receiver",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "AlreadyActive",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "BridgeNotReady",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ConfigurationFrozen",
+    "inputs": []
+  },
+  {
     "type": "error",
     "name": "GardenAlreadyBound",
     "inputs": []
   },
   {
     "type": "error",
-    "name": "GardenNotConfigured",
+    "name": "IMDUnavailable",
     "inputs": []
   },
   {
     "type": "error",
-    "name": "IMDUnavailable",
+    "name": "IncorrectNativeFee",
     "inputs": []
   },
   {
@@ -669,12 +1227,27 @@
   },
   {
     "type": "error",
-    "name": "InvalidBurnSink",
+    "name": "InvalidBatch",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidBridgeConfiguration",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidBridgeReceipt",
     "inputs": []
   },
   {
     "type": "error",
     "name": "InvalidGarden",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidMessage",
     "inputs": []
   },
   {
@@ -743,7 +1316,7 @@
   },
   {
     "type": "error",
-    "name": "UnauthorizedBeneficiary",
+    "name": "UnauthenticatedMessage",
     "inputs": []
   },
   {

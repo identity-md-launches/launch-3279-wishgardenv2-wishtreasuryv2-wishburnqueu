@@ -4,8 +4,8 @@ pragma solidity 0.8.26;
 import {GardenTestBase} from "./helpers/GardenTestBase.sol";
 import {AdversarialIMD} from "./helpers/AdversarialIMD.sol";
 import {GardenEconomy} from "../src/GardenEconomy.sol";
-import {WishGarden} from "../src/WishGarden.sol";
-import {WishGardenTreasury} from "../src/WishGardenTreasury.sol";
+import {LegacyWishGarden as WishGarden} from "./legacy-src/LegacyWishGarden.sol";
+import {LegacyWishGardenTreasury as WishGardenTreasury} from "./legacy-src/LegacyWishGardenTreasury.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 

@@ -2,8 +2,8 @@
 pragma solidity 0.8.26;
 
 import {GardenTestBase} from "./helpers/GardenTestBase.sol";
-import {WishGarden} from "../src/WishGarden.sol";
-import {WishGardenTreasury} from "../src/WishGardenTreasury.sol";
+import {LegacyWishGarden as WishGarden} from "./legacy-src/LegacyWishGarden.sol";
+import {LegacyWishGardenTreasury as WishGardenTreasury} from "./legacy-src/LegacyWishGardenTreasury.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {GardenEconomy} from "../src/GardenEconomy.sol";
 

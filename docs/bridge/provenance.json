@@ -1,0 +1,35 @@
+{
+  "description": "Offline ABI/encoding reference snapshots; MIT headers retained. Production uses local typed subsets, not downloaded dependencies.",
+  "files": {
+    "IOFT.sol": {
+      "verifiedSourcePath": "lib/devtools/packages/oft-evm/contracts/interfaces/IOFT.sol",
+      "sha256": "826e606e5ec4a8a22fb5d4876ddc1b0e3c50d6c8da9da96cb88cbd38877379fa",
+      "source": "https://sourcify.dev/server/v2/contract/1/0xd34a99bc0f67ae1bbd63c660e6d0b0dd03e263b7?fields=all"
+    },
+    "ILayerZeroEndpointV2.sol": {
+      "verifiedSourcePath": "lib/LayerZero-v2/packages/layerzero-v2/evm/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol",
+      "sha256": "a88fb702b371527c3791d7e5c168c1157d39021ed29b51e627e02973e6a740e0",
+      "source": "https://sourcify.dev/server/v2/contract/1/0xd34a99bc0f67ae1bbd63c660e6d0b0dd03e263b7?fields=all"
+    },
+    "ILayerZeroReceiver.sol": {
+      "verifiedSourcePath": "lib/LayerZero-v2/packages/layerzero-v2/evm/protocol/contracts/interfaces/ILayerZeroReceiver.sol",
+      "sha256": "24e4add7dd95a72dad23e26c4fadfc1b6ce63148e0c7f4d6ad5dfaeda79db3e7",
+      "source": "https://sourcify.dev/server/v2/contract/1/0xd34a99bc0f67ae1bbd63c660e6d0b0dd03e263b7?fields=all"
+    },
+    "OFTComposeMsgCodec.sol": {
+      "verifiedSourcePath": "lib/devtools/packages/oft-evm/contracts/libs/OFTComposeMsgCodec.sol",
+      "sha256": "c1fe5b84aa7fdc9b5480174db9d46baa241edc7a1cc63a93a827e16b7dc21fc8",
+      "source": "https://sourcify.dev/server/v2/contract/1/0xd34a99bc0f67ae1bbd63c660e6d0b0dd03e263b7?fields=all"
+    },
+    "OFTMsgCodec.sol": {
+      "verifiedSourcePath": "lib/devtools/packages/oft-evm/contracts/libs/OFTMsgCodec.sol",
+      "sha256": "3e6dfff6595f8af1c1618a80e30efd16f117652e1fd73ffb1f6795dcc443d658",
+      "source": "https://sourcify.dev/server/v2/contract/1/0xd34a99bc0f67ae1bbd63c660e6d0b0dd03e263b7?fields=all"
+    },
+    "ExecutorOptions.sol": {
+      "sha256": "51a865ee90596427f27ab9421a8606130d7fdee8d1d9e4fe98d18eea5edaac45",
+      "source": "https://raw.githubusercontent.com/LayerZero-Labs/LayerZero-v2/main/packages/layerzero-v2/evm/messagelib/contracts/libs/ExecutorOptions.sol",
+      "note": "Downloaded snapshot, not a dependency on moving main."
+    }
+  }
+}

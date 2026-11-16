@@ -1,0 +1,111 @@
+{
+  "chainId": 1,
+  "block": "0x1933d72",
+  "description": "Read-only live runtime compared to archived original source rebuilt with unchanged configuration; constructor-specific immutable words masked on both sides.",
+  "comparisons": [
+    {
+      "fixture": "LegacyWishGarden",
+      "legacyAddress": "0xaabd6a747359f5478803efa7b51e929e62ec4ca2",
+      "bytes": 7854,
+      "equalAfterMaskingImmutableArguments": true,
+      "immutableReferences": {
+        "61509": [
+          {
+            "start": 763,
+            "length": 32
+          },
+          {
+            "start": 3415,
+            "length": 32
+          },
+          {
+            "start": 3467,
+            "length": 32
+          },
+          {
+            "start": 4266,
+            "length": 32
+          },
+          {
+            "start": 4399,
+            "length": 32
+          },
+          {
+            "start": 4581,
+            "length": 32
+          },
+          {
+            "start": 4762,
+            "length": 32
+          }
+        ]
+      }
+    },
+    {
+      "fixture": "LegacyWishGardenTreasury",
+      "legacyAddress": "0x929a062e0ab6266534f1ce573ba34ca7980207aa",
+      "bytes": 6508,
+      "equalAfterMaskingImmutableArguments": true,
+      "immutableReferences": {
+        "62522": [
+          {
+            "start": 607,
+            "length": 32
+          },
+          {
+            "start": 2849,
+            "length": 32
+          },
+          {
+            "start": 3200,
+            "length": 32
+          },
+          {
+            "start": 3390,
+            "length": 32
+          },
+          {
+            "start": 3644,
+            "length": 32
+          },
+          {
+            "start": 4359,
+            "length": 32
+          },
+          {
+            "start": 4485,
+            "length": 32
+          }
+        ],
+        "62524": [
+          {
+            "start": 750,
+            "length": 32
+          },
+          {
+            "start": 3894,
+            "length": 32
+          },
+          {
+            "start": 4045,
+            "length": 32
+          }
+        ],
+        "62526": [
+          {
+            "start": 862,
+            "length": 32
+          },
+          {
+            "start": 1922,
+            "length": 32
+          },
+          {
+            "start": 2073,
+            "length": 32
+          }
+        ]
+      }
+    }
+  ]
+}

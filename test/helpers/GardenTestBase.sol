@@ -7,9 +7,9 @@ import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IER
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {GardenEconomy} from "../../src/GardenEconomy.sol";
-import {WishGarden} from "../../src/WishGarden.sol";
-import {WishGardenTreasury} from "../../src/WishGardenTreasury.sol";
-import {WishGardenBurnSink} from "../../src/WishGardenBurnSink.sol";
+import {LegacyWishGarden as WishGarden} from "../legacy-src/LegacyWishGarden.sol";
+import {LegacyWishGardenTreasury as WishGardenTreasury} from "../legacy-src/LegacyWishGardenTreasury.sol";
+import {LegacyWishGardenBurnSink as WishGardenBurnSink} from "../legacy-src/LegacyWishGardenBurnSink.sol";
 import {IMDRuntime} from "../fixtures/IMDRuntime.sol";
 import {IdentityNFTRuntime} from "../fixtures/IdentityNFTRuntime.sol";
 

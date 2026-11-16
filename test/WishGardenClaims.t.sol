@@ -2,7 +2,7 @@
 pragma solidity 0.8.26;
 
 import {GardenTestBase} from "./helpers/GardenTestBase.sol";
-import {WishGarden} from "../src/WishGarden.sol";
+import {LegacyWishGarden as WishGarden} from "./legacy-src/LegacyWishGarden.sol";
 import {GardenEconomy} from "../src/GardenEconomy.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
