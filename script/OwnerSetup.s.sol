@@ -17,7 +17,8 @@ contract OwnerSetup is Script {
     }
 
     /// @notice Freezes the bridge. The receiver is not an argument: the treasury derives it from the compiled
-    ///         BaseBurnReceiver code, itself, the fixed endpoint ids, the Base endpoint/adapter/gas and `salt`.
+    ///         BaseBurnReceiver code, itself, the fixed endpoint ids, the Base endpoint/adapter/gas, `maxBatch`
+    ///         (largest dispatchable batch, IMD base units, a multiple of 1e12 and at least 0.3e18) and `salt`.
     ///         Returns the derived address the owner must deploy to on Base with `DeployBaseReceiver`.
     function freeze(
         address queue,
@@ -27,12 +28,13 @@ contract OwnerSetup is Script {
         uint128 receiveGas,
         uint128 composeGas,
         uint128 acknowledgementGas,
+        uint256 maxBatch,
         bytes32 salt,
         bytes32 reviewedEvidence
     ) external returns (address derivedReceiver) {
         _check(queue);
         WishGardenTreasury t = WishGardenTreasury(queue);
-        derivedReceiver = t.predictReceiver(baseEndpoint, baseOFT, acknowledgementGas, salt);
+        derivedReceiver = t.predictReceiver(baseEndpoint, baseOFT, acknowledgementGas, maxBatch, salt);
         vm.startBroadcast(OWNER);
         t.freezeBridge(
             endpoint,
@@ -41,6 +43,7 @@ contract OwnerSetup is Script {
             receiveGas,
             composeGas,
             acknowledgementGas,
+            maxBatch,
             salt,
             reviewedEvidence
         );

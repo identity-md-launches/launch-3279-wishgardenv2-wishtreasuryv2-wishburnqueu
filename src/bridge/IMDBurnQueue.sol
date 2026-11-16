@@ -38,6 +38,9 @@ abstract contract IMDBurnQueue is GardenEconomy, Ownable2Step, ReentrancyGuard {
     address public baseOFT;
     address public baseReceiver;
     uint128 public acknowledgementGas;
+    /// @notice Largest batch any caller can dispatch; frozen with the bridge and checked by the receiver against
+    ///         the Base token's transfer limits before it signals readiness.
+    uint256 public maxBatch;
     bytes32 public receiverSalt;
     bytes public bridgeOptions;
     bytes32 public verificationEvidence;
@@ -82,8 +85,10 @@ abstract contract IMDBurnQueue is GardenEconomy, Ownable2Step, ReentrancyGuard {
 
     /// @notice One-time owner configuration AFTER independent verification of BOTH chains and default DVN routes.
     /// @dev The receiver address is derived here from the compiled receiver code, this treasury, the fixed
-    ///      endpoint ids and the given Base endpoint/adapter/gas/salt. A receiver built from other code, for
-    ///      another queue or with other arguments has a different address and can never authenticate.
+    ///      endpoint ids and the given Base endpoint/adapter/gas/maximum batch/salt. A receiver built from other
+    ///      code, for another queue or with other arguments has a different address and can never authenticate.
+    ///      `maxBatch_` bounds every dispatch; the derived receiver refuses readiness while the Base token's
+    ///      limits would reject one credit of that size.
     function freezeBridge(
         address endpoint_,
         address baseEndpoint_,
@@ -91,6 +96,7 @@ abstract contract IMDBurnQueue is GardenEconomy, Ownable2Step, ReentrancyGuard {
         uint128 receiveGas_,
         uint128 composeGas_,
         uint128 acknowledgementGas_,
+        uint256 maxBatch_,
         bytes32 receiverSalt_,
         bytes32 evidence_
     ) external onlyOwner nonReentrant {
@@ -101,14 +107,18 @@ abstract contract IMDBurnQueue is GardenEconomy, Ownable2Step, ReentrancyGuard {
                 || baseOFT_ == IMD || baseOFT_ == baseEndpoint_ || evidence_ == bytes32(0)
                 || receiveGas_ < 100_000 || composeGas_ < 100_000 || acknowledgementGas_ < 100_000
                 || receiveGas_ > 5_000_000 || composeGas_ > 5_000_000 || acknowledgementGas_ > 5_000_000
+                || maxBatch_ < MIN_DISPATCH || maxBatch_ % BRIDGE_UNIT != 0
+                || maxBatch_ / BRIDGE_UNIT > type(uint64).max
         ) revert InvalidBridgeConfiguration();
-        address receiver_ = predictReceiver(baseEndpoint_, baseOFT_, acknowledgementGas_, receiverSalt_);
+        address receiver_ =
+            predictReceiver(baseEndpoint_, baseOFT_, acknowledgementGas_, maxBatch_, receiverSalt_);
         if (receiver_ == baseOFT_ || receiver_ == baseEndpoint_) revert InvalidBridgeConfiguration();
         endpoint = endpoint_;
         baseEndpoint = baseEndpoint_;
         baseOFT = baseOFT_;
         baseReceiver = receiver_;
         acknowledgementGas = acknowledgementGas_;
+        maxBatch = maxBatch_;
         receiverSalt = receiverSalt_;
         bridgeOptions = BridgeMessages.composeOptions(receiveGas_, composeGas_);
         verificationEvidence = evidence_;
@@ -116,24 +126,28 @@ abstract contract IMDBurnQueue is GardenEconomy, Ownable2Step, ReentrancyGuard {
         endpointCodeHash = endpoint_.codehash;
         bridgeFrozen = true;
         _checkBridge();
-        configurationHash = keccak256(
+        bytes32 frozenHash = _configurationHash();
+        configurationHash = frozenHash;
+        emit BridgeFrozen(frozenHash, evidence_, receiver_);
+    }
+
+    function _configurationHash() private view returns (bytes32) {
+        return keccak256(
             abi.encode(
                 block.chainid,
                 address(this),
-                endpoint_,
-                baseEndpoint_,
+                endpoint,
+                baseEndpoint,
                 ETHEREUM_EID,
                 BASE_EID,
-                baseOFT_,
-                receiver_,
-                acknowledgementGas_,
-                receiverSalt_,
-                receiverCreationCodeHash(),
+                baseOFT,
+                baseReceiver,
+                acknowledgementGas,
+                keccak256(abi.encode(maxBatch, receiverSalt, receiverCreationCodeHash())),
                 bridgeOptions,
-                evidence_
+                verificationEvidence
             )
         );
-        emit BridgeFrozen(configurationHash, evidence_, receiver_);
     }
 
     function activatePurchases() external onlyOwner nonReentrant {
@@ -150,16 +164,23 @@ abstract contract IMDBurnQueue is GardenEconomy, Ownable2Step, ReentrancyGuard {
     }
 
     /// @notice CREATE2 init code hash of the receiver bound to THIS treasury with the fixed endpoint ids.
-    function receiverInitCodeHash(address baseEndpoint_, address baseOFT_, uint128 acknowledgementGas_)
-        public
-        view
-        returns (bytes32)
-    {
+    function receiverInitCodeHash(
+        address baseEndpoint_,
+        address baseOFT_,
+        uint128 acknowledgementGas_,
+        uint256 maxBatch_
+    ) public view returns (bytes32) {
         return keccak256(
             bytes.concat(
                 type(BaseBurnReceiver).creationCode,
                 abi.encode(
-                    baseEndpoint_, baseOFT_, address(this), ETHEREUM_EID, BASE_EID, acknowledgementGas_
+                    baseEndpoint_,
+                    baseOFT_,
+                    address(this),
+                    ETHEREUM_EID,
+                    BASE_EID,
+                    acknowledgementGas_,
+                    maxBatch_
                 )
             )
         );
@@ -170,9 +191,10 @@ abstract contract IMDBurnQueue is GardenEconomy, Ownable2Step, ReentrancyGuard {
         address baseEndpoint_,
         address baseOFT_,
         uint128 acknowledgementGas_,
+        uint256 maxBatch_,
         bytes32 salt
     ) public view returns (address) {
-        bytes32 initCodeHash = receiverInitCodeHash(baseEndpoint_, baseOFT_, acknowledgementGas_);
+        bytes32 initCodeHash = receiverInitCodeHash(baseEndpoint_, baseOFT_, acknowledgementGas_, maxBatch_);
         return address(
             uint160(uint256(keccak256(abi.encodePacked(bytes1(0xff), CREATE2_DEPLOYER, salt, initCodeHash))))
         );
@@ -193,7 +215,9 @@ abstract contract IMDBurnQueue is GardenEconomy, Ownable2Step, ReentrancyGuard {
     }
 
     /// @notice Anyone can pay native gas to send pending IMD ONLY to the frozen receiver via IMD.send.
-    /// @dev Sends min(maxAmount, pendingBurn) rounded down to a shared unit. A batch below MIN_DISPATCH is
+    /// @dev Sends min(maxAmount, pendingBurn, maxBatch) rounded down to a shared unit, so no caller can create
+    ///      a batch larger than the frozen bound the receiver checked against the Base token's limits; a larger
+    ///      pending balance simply takes several batches. A batch below MIN_DISPATCH is
     ///      allowed only when it is the whole rounded pending balance, so a third party cannot split pending
     ///      funds into micro-batches. `maxBatchId` is an upper bound: an earlier dispatch by someone else
     ///      does not invalidate a prepared one, it only reduces what is left to send.
@@ -311,6 +335,7 @@ abstract contract IMDBurnQueue is GardenEconomy, Ownable2Step, ReentrancyGuard {
     function _roundedAmount(uint256 maxAmount) private view returns (uint256 amount, uint256 dust) {
         uint256 pending = pendingBurn;
         uint256 capped = maxAmount > pending ? pending : maxAmount;
+        if (capped > maxBatch) capped = maxBatch;
         amount = capped / BRIDGE_UNIT * BRIDGE_UNIT;
         dust = capped - amount;
         if (amount == 0 || amount / BRIDGE_UNIT > type(uint64).max) revert InvalidBatch();

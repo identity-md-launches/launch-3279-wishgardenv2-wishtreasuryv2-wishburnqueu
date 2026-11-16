@@ -19,7 +19,7 @@ python3 scripts/operator.py --rpc "$ETH_RPC" status --queue "$ETH_TREASURY"
 python3 scripts/operator.py --rpc "$ETH_RPC" dispatch --queue "$ETH_TREASURY" --amount 300000000000000000
 ```
 
-Amount is **IMD base units**, not native ETH or a candle count, and it is an upper bound: the queue sends `min(amount, pendingBurn)` rounded down to a shared-decimal unit. The second command prints chain, to, data, native value, quoted block, the next batch ID (sent as an upper bound) and retained requested dust. Review, simulate from the intended funded caller with `eth_call` / `eth_estimateGas`, add normal gas margin, then sign in that caller's wallet. Refresh the quote just before signing. Underpayment/overpayment reverts. If another caller dispatched first, your transaction still succeeds with the next id and the remaining pending amount; it reverts only when nothing sendable is left or your batch bound is already below the next id. A batch smaller than `MIN_DISPATCH` (0.3 IMD) is refused unless it is the whole remaining rounded balance, so nobody can split pending funds into micro-batches. While the Base token has transfer limits in effect, keep each batch at or below the receiver's `maxCredit()`.
+Amount is **IMD base units**, not native ETH or a candle count, and it is an upper bound: the queue sends `min(amount, pendingBurn, maxBatch)` rounded down to a shared-decimal unit. The second command prints chain, to, data, native value, quoted block, the next batch ID (sent as an upper bound) and retained requested dust. Review, simulate from the intended funded caller with `eth_call` / `eth_estimateGas`, add normal gas margin, then sign in that caller's wallet. Refresh the quote just before signing. Underpayment/overpayment reverts. If another caller dispatched first, your transaction still succeeds with the next id and the remaining pending amount; it reverts only when nothing sendable is left or your batch bound is already below the next id. A batch smaller than `MIN_DISPATCH` (0.3 IMD) is refused unless it is the whole remaining rounded balance, so nobody can split pending funds into micro-batches. No caller can dispatch more than the frozen `maxBatch` in one batch (`status` prints it); a larger pending balance needs several dispatches. The receiver proved at readiness that one such credit fits the Base token's limits; if the Base token owner tightens them afterwards, check `receiver-status` and dispatch smaller batches yourself, knowing a third party may still dispatch up to `maxBatch`, which then waits (retryable) until the limit allows it.
 
 Record the transaction receipt, batch ID and OFT GUID. A submitted transaction with no known receipt is not evidence of failure. If a source transaction succeeds, its tokens are in transit: never submit another source send “for” that same batch. The contract does not expose a source resend or cancellation method.
 
@@ -35,6 +35,15 @@ python3 scripts/operator.py --rpc "$BASE_RPC" retry-compose \
 ```
 
 The planner checks receiver bindings, source queue/EID, application payload and the endpoint's pending `composeQueue` hash. It emits the actual V2 endpoint `lzCompose` calldata, with zero native value. If already delivered or the hash differs, it refuses. Simulate with sufficient gas; any token shortage, burn failure or low-gas failure leaves the original compose retryable. Never buy candles again to retry a wish or burn.
+
+## Receiver balance, donations and wallet limits
+
+```sh
+python3 scripts/operator.py --rpc "$BASE_RPC" receiver-status --receiver "$BASE_RECEIVER"
+python3 scripts/operator.py --rpc "$BASE_RPC" burn-surplus --receiver "$BASE_RECEIVER"
+```
+
+`receiver-status` prints `maxBatch`, the current `maxCredit`, `totalBurned`, `surplusBurned` and the IMD held. If someone sends IMD straight to the receiver, or a credit sits there before its compose, that balance counts against the Base token's max-wallet limit and can make the next adapter credit revert with `Max wallet exceeded`. `burn-surplus` prepares the unsigned, zero-value `burnSurplus()` call that anyone may send: it burns everything the receiver holds, after which the blocked credit can be retried. It never releases tokens and never marks a batch burned; a credit burned this way is completed by its own compose from `surplusBurned`.
 
 ## Acknowledge readiness or completed burns
 

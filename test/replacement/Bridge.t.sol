@@ -130,8 +130,9 @@ contract BridgeTest is ReplacementTestBase, WalletGas {
         assertEq(treasury.confirmedBurn(), 3e18);
     }
 
-    /// @notice Reopened low finding: readiness refuses while the Base token would reject every credit.
-    function test_readinessRefusedWhileBlacklistedOrMaxWalletBelowMinimumBatch() public {
+    /// @notice Reopened low finding: readiness refuses while the Base token would reject a credit. The bound is
+    ///         the frozen maximum batch, and held IMD is burned first so it cannot use up the headroom.
+    function test_readinessRefusedWhileBlacklistedOrMaxWalletBelowMaximumBatch() public {
         vm.chainId(8453);
         WishGardenTreasury t = new WishGardenTreasury(OWNER);
         BaseBurnReceiver fresh = _deployReceiver(address(t), keccak256("restricted"));
@@ -143,20 +144,219 @@ contract BridgeTest is ReplacementTestBase, WalletGas {
         vm.expectRevert(BaseBurnReceiver.CreditRestricted.selector);
         fresh.sendAcknowledgement{value: 0.001 ether}(0);
         baseToken.setBlacklisted(address(adapter), false);
-        baseToken.setLimits(true, 0.3e18 - 1);
-        assertEq(fresh.maxCredit(), 0.3e18 - 1);
+        baseToken.setLimits(true, MAX_BATCH - 1);
+        assertEq(fresh.maxCredit(), MAX_BATCH - 1);
         vm.expectRevert(BaseBurnReceiver.CreditRestricted.selector);
         fresh.sendAcknowledgement{value: 0.001 ether}(0);
-        baseToken.setLimits(true, 1e18);
+        baseToken.setLimits(true, MAX_BATCH);
         baseToken.mint(address(fresh), 0.5e18);
-        assertEq(fresh.maxCredit(), 0.5e18);
+        assertEq(fresh.maxCredit(), MAX_BATCH - 0.5e18);
         fresh.sendAcknowledgement{value: 0.001 ether}(0);
+        assertEq(baseToken.balanceOf(address(fresh)), 0, "held IMD is burned before the headroom check");
+        assertEq(fresh.surplusBurned(), 0.5e18);
+        assertEq(fresh.maxCredit(), MAX_BATCH);
+        baseToken.setLimits(true, 1);
         baseToken.setExcluded(address(fresh), true);
         assertEq(fresh.maxCredit(), type(uint256).max);
         baseToken.setExcluded(address(fresh), false);
         baseToken.setLimits(false, 0);
         assertEq(fresh.maxCredit(), type(uint256).max);
         assertEq(fresh.MIN_CREDIT(), treasury.MIN_DISPATCH());
+        assertEq(receiver.maxBatch(), treasury.maxBatch());
+        assertEq(treasury.maxBatch(), MAX_BATCH);
+    }
+
+    /// @notice Reopened low finding: while limits are on and trading is off the token rejects adapter credits
+    ///         unless the adapter or the receiver is fee-excluded, so readiness is refused in that state.
+    function test_readinessRefusedWhileTradingInactive() public {
+        vm.chainId(8453);
+        baseToken.setTradingPaused(true);
+        assertEq(receiver.maxCredit(), type(uint256).max, "limits off: trading flag is not consulted");
+        baseToken.setLimits(true, MAX_BATCH);
+        assertEq(receiver.maxCredit(), 0);
+        vm.expectRevert(BaseBurnReceiver.CreditRestricted.selector);
+        receiver.sendAcknowledgement{value: 0.001 ether}(0);
+        baseToken.setExcludedFromFees(address(adapter), true);
+        assertEq(receiver.maxCredit(), MAX_BATCH);
+        baseToken.setExcludedFromFees(address(adapter), false);
+        baseToken.setExcludedFromFees(address(receiver), true);
+        assertEq(receiver.maxCredit(), MAX_BATCH);
+        baseToken.setExcludedFromFees(address(receiver), false);
+        baseToken.setTradingPaused(false);
+        assertEq(receiver.maxCredit(), MAX_BATCH);
+        receiver.sendAcknowledgement{value: 0.001 ether}(0);
+    }
+
+    /// @notice Reopened medium finding: no caller can create a batch above the frozen bound; a larger pending
+    ///         balance is sent as several batches, each one the receiver proved it can accept.
+    function test_dispatchNeverExceedsFrozenMaximumBatch() public {
+        _buy(50, 0, "");
+        _buy(50, 0, "");
+        _buy(50, 0, "");
+        assertEq(treasury.pendingBurn(), 45e18);
+        (uint256 amount, uint256 dust,, uint256 next) = treasury.quoteDispatch(type(uint256).max);
+        assertEq(amount, MAX_BATCH);
+        assertEq(dust, 0);
+        assertEq(next, 1);
+        vm.prank(bob);
+        assertEq(treasury.dispatch{value: 0.001 ether}(type(uint256).max, type(uint256).max), 1);
+        (, uint256 recorded,) = treasury.batches(1);
+        assertEq(recorded, MAX_BATCH);
+        assertEq(token.lastAmount(), MAX_BATCH);
+        assertEq(treasury.pendingBurn(), 15e18);
+        assertEq(treasury.inTransitBurn(), MAX_BATCH);
+        vm.prank(bob);
+        treasury.dispatch{value: 0.001 ether}(40e18, 2);
+        (, recorded,) = treasury.batches(2);
+        assertEq(recorded, 15e18);
+        assertEq(treasury.pendingBurn(), 0);
+        _assertAccounting(150);
+    }
+
+    function testFuzz_dispatchBoundedByRequestPendingAndFrozenMaximum(uint8 buys, uint256 requested) public {
+        uint256 count = bound(buys, 1, 4);
+        for (uint256 i; i < count; ++i) {
+            _buy(50, 0, "");
+        }
+        uint256 pending = count * 15e18;
+        requested = bound(requested, 0.3e18, type(uint256).max);
+        uint256 expected = requested < pending ? requested : pending;
+        if (expected > MAX_BATCH) expected = MAX_BATCH;
+        expected = expected / 1e12 * 1e12;
+        uint256 id = treasury.dispatch{value: 0.001 ether}(requested, 1);
+        (, uint256 recorded,) = treasury.batches(id);
+        assertEq(recorded, expected);
+        assertLe(recorded, treasury.maxBatch());
+        assertEq(treasury.pendingBurn(), pending - expected);
+        _assertAccounting(count * 50);
+    }
+
+    function test_freezeRejectsUnusableMaximumBatch() public {
+        WishGardenTreasury t = new WishGardenTreasury(OWNER);
+        vm.startPrank(OWNER);
+        uint256[4] memory bad = [uint256(0), 0.3e18 - 1e12, 1e18 + 1, (uint256(type(uint64).max) + 1) * 1e12];
+        for (uint256 i; i < bad.length; ++i) {
+            vm.expectRevert(IMDBurnQueue.InvalidBridgeConfiguration.selector);
+            t.freezeBridge(
+                address(ethEndpoint),
+                address(baseEndpoint),
+                address(adapter),
+                GAS,
+                GAS,
+                GAS,
+                bad[i],
+                SALT,
+                EVIDENCE
+            );
+        }
+        t.freezeBridge(
+            address(ethEndpoint),
+            address(baseEndpoint),
+            address(adapter),
+            GAS,
+            GAS,
+            GAS,
+            0.3e18,
+            SALT,
+            EVIDENCE
+        );
+        vm.stopPrank();
+        assertEq(t.maxBatch(), 0.3e18);
+        // The bound is part of the receiver derivation: a receiver built for another bound is another address.
+        assertTrue(
+            t.baseReceiver()
+                != t.predictReceiver(address(baseEndpoint), address(adapter), GAS, MAX_BATCH, SALT)
+        );
+        vm.chainId(8453);
+        vm.expectRevert(BaseBurnReceiver.InvalidConfiguration.selector);
+        new BaseBurnReceiver(
+            address(baseEndpoint), address(adapter), address(t), 30101, 30184, GAS, 0.3e18 - 1
+        );
+    }
+
+    /// @notice Reopened medium finding: IMD sent straight to the receiver is no longer stuck there. Anyone can
+    ///         burn it (a real supply burn), it is never counted as a batch, and it cannot leave any other way.
+    function test_donationIsBurnableSurplusNeverCountedAsBatch() public {
+        vm.chainId(8453);
+        vm.expectRevert(BaseBurnReceiver.InexactBurn.selector);
+        receiver.burnSurplus();
+        baseToken.mint(address(receiver), 7e18);
+        uint256 supply = baseToken.totalSupply();
+        vm.chainId(1);
+        vm.expectRevert(BaseBurnReceiver.WrongChain.selector);
+        receiver.burnSurplus();
+        vm.chainId(8453);
+        vm.prank(bob);
+        assertEq(receiver.burnSurplus(), 7e18);
+        assertEq(baseToken.balanceOf(address(receiver)), 0);
+        assertEq(baseToken.totalSupply(), supply - 7e18);
+        assertEq(receiver.surplusBurned(), 7e18);
+        assertEq(receiver.totalBurned(), 0);
+        vm.expectRevert(BaseBurnReceiver.UnknownBatch.selector);
+        receiver.sendAcknowledgement{value: 0.001 ether}(1);
+        // A later real batch burns its own credit; the donation stays unattributed.
+        vm.chainId(1);
+        _buy(1, 0, "");
+        (uint256 id, bytes32 guid) = _dispatch(0.3e18);
+        _burn(id, guid, 0.3e18);
+        assertEq(receiver.totalBurned(), 0.3e18);
+        assertEq(receiver.surplusBurned(), 7e18);
+        receiver.sendAcknowledgement{value: 0.001 ether}(id);
+        _deliverAck(baseEndpoint.lastMessage());
+        assertEq(treasury.confirmedBurn(), 0.3e18);
+        _assertAccounting(1);
+    }
+
+    /// @notice Burning a batch credit with `burnSurplus` before its compose runs cannot strand the batch or
+    ///         count it twice: the compose completes from the remembered amount, exactly once.
+    function testFuzz_surplusBurnBeforeComposeCompletesBatchExactlyOnce(uint64 donated, uint64 sweptPart)
+        public
+    {
+        _buy(10, 0, "");
+        (uint256 id, bytes32 guid) = _dispatch(3e18);
+        vm.chainId(8453);
+        uint256 donation = bound(donated, 0, 5e18);
+        uint256 early = bound(sweptPart, 0, 3e18);
+        // Part of the credit and a donation are present when someone burns the surplus.
+        baseToken.mint(address(receiver), donation + early);
+        if (donation + early != 0) receiver.burnSurplus();
+        // The rest of the credit arrives with the compose.
+        baseToken.mint(address(receiver), 3e18 - early);
+        uint256 supply = baseToken.totalSupply();
+        vm.prank(address(baseEndpoint));
+        receiver.lzCompose(address(adapter), guid, _composeMessage(id, 3e18), alice, "");
+        assertEq(receiver.totalBurned(), 3e18);
+        assertEq(receiver.surplusBurned(), donation, "only the donation stays unattributed");
+        assertEq(baseToken.balanceOf(address(receiver)), 0);
+        assertEq(baseToken.totalSupply(), supply - (3e18 - early));
+        vm.prank(address(baseEndpoint));
+        vm.expectRevert(BaseBurnReceiver.DuplicateBurn.selector);
+        receiver.lzCompose(address(adapter), guid, _composeMessage(id, 3e18), alice, "");
+        receiver.sendAcknowledgement{value: 0.001 ether}(id);
+        _deliverAck(baseEndpoint.lastMessage());
+        assertEq(treasury.confirmedBurn(), 3e18);
+        assertEq(treasury.inTransitBurn(), 0);
+    }
+
+    function test_composeWithoutCreditOrSurplusStillReverts() public {
+        _buy(2, 0, "");
+        (uint256 id, bytes32 guid) = _dispatch(0.6e18);
+        vm.chainId(8453);
+        baseToken.mint(address(receiver), 0.2e18);
+        receiver.burnSurplus();
+        baseToken.mint(address(receiver), 0.3e18);
+        // 0.2 already burned + 0.3 held < 0.6 credited: nothing is consumed and the exact retry stays open.
+        vm.prank(address(baseEndpoint));
+        vm.expectRevert(BaseBurnReceiver.InexactBurn.selector);
+        receiver.lzCompose(address(adapter), guid, _composeMessage(id, 0.6e18), alice, "");
+        assertEq(receiver.surplusBurned(), 0.2e18);
+        assertEq(receiver.totalBurned(), 0);
+        assertEq(baseToken.balanceOf(address(receiver)), 0.3e18);
+        baseToken.mint(address(receiver), 0.1e18);
+        vm.prank(address(baseEndpoint));
+        receiver.lzCompose(address(adapter), guid, _composeMessage(id, 0.6e18), alice, "");
+        assertEq(receiver.surplusBurned(), 0);
+        assertEq(receiver.totalBurned(), 0.6e18);
     }
 
     function testFuzz_sendFailureRetryNeverDoubleCounts(uint8 modeSeed, uint8 q) public {

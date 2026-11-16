@@ -79,10 +79,13 @@ interface IBurnableIMD {
 
 /// @notice Transfer-restriction views of the verified Base IMD runtime (selectors present in its dispatcher).
 /// @dev Its `_transfer` enforces blacklist and, while `limitsInEffect`, `maxWallet` for non-excluded
-///      recipients; ERC20Burnable `burn` bypasses `_transfer`, so a zero-burn probe alone cannot see them.
+///      recipients and `tradingActive` unless sender or recipient is fee-excluded; ERC20Burnable `burn`
+///      bypasses `_transfer`, so a zero-burn probe alone cannot see them.
 interface IBaseIMDRestrictions {
     function isBlacklisted(address account) external view returns (bool);
     function limitsInEffect() external view returns (bool);
+    function tradingActive() external view returns (bool);
+    function isExcludedFromFees(address account) external view returns (bool);
     function maxWallet() external view returns (uint256);
     function _isExcludedMaxTransactionAmount(address account) external view returns (bool);
 }

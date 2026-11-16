@@ -13,30 +13,58 @@ contract OwnerScriptsTest is ReplacementTestBase {
         DeployBaseReceiver script = new DeployBaseReceiver();
         WishGardenTreasury t = new WishGardenTreasury(OWNER);
         bytes32 salt = keccak256("owner script salt");
-        address predicted = t.predictReceiver(address(baseEndpoint), address(adapter), GAS, salt);
-        assertEq(script.predict(address(baseEndpoint), address(adapter), address(t), GAS, salt), predicted);
+        address predicted = t.predictReceiver(address(baseEndpoint), address(adapter), GAS, MAX_BATCH, salt);
+        assertEq(
+            script.predict(address(baseEndpoint), address(adapter), address(t), GAS, MAX_BATCH, salt),
+            predicted
+        );
         vm.expectRevert("Base required");
-        script.run(address(baseEndpoint), address(adapter), address(t), GAS, salt, predicted, EVIDENCE);
+        script.run(
+            address(baseEndpoint), address(adapter), address(t), GAS, MAX_BATCH, salt, predicted, EVIDENCE
+        );
         vm.chainId(8453);
         vm.expectRevert("predicted address differs from the Ethereum treasury's");
-        script.run(address(baseEndpoint), address(adapter), address(t), GAS, salt, bob, EVIDENCE);
+        script.run(address(baseEndpoint), address(adapter), address(t), GAS, MAX_BATCH, salt, bob, EVIDENCE);
         vm.expectRevert("predicted address differs from the Ethereum treasury's");
-        script.run(address(baseEndpoint), address(adapter), address(treasury), GAS, salt, predicted, EVIDENCE);
-        BaseBurnReceiver deployed =
-            script.run(address(baseEndpoint), address(adapter), address(t), GAS, salt, predicted, EVIDENCE);
+        script.run(
+            address(baseEndpoint),
+            address(adapter),
+            address(treasury),
+            GAS,
+            MAX_BATCH,
+            salt,
+            predicted,
+            EVIDENCE
+        );
+        BaseBurnReceiver deployed = script.run(
+            address(baseEndpoint), address(adapter), address(t), GAS, MAX_BATCH, salt, predicted, EVIDENCE
+        );
         assertEq(address(deployed), predicted);
         assertEq(deployed.ethereumQueue(), address(t));
         assertEq(deployed.baseOFT(), address(adapter));
         vm.expectRevert("already deployed");
-        script.run(address(baseEndpoint), address(adapter), address(t), GAS, salt, predicted, EVIDENCE);
+        script.run(
+            address(baseEndpoint), address(adapter), address(t), GAS, MAX_BATCH, salt, predicted, EVIDENCE
+        );
         vm.expectRevert("reviewed evidence and confirmed queue required");
-        script.run(address(baseEndpoint), address(adapter), address(t), GAS, salt, predicted, bytes32(0));
+        script.run(
+            address(baseEndpoint), address(adapter), address(t), GAS, MAX_BATCH, salt, predicted, bytes32(0)
+        );
         vm.expectRevert("wrong endpoint");
-        script.run(address(ethEndpoint), address(adapter), address(t), GAS, salt, predicted, EVIDENCE);
+        script.run(
+            address(ethEndpoint), address(adapter), address(t), GAS, MAX_BATCH, salt, predicted, EVIDENCE
+        );
         vm.etch(CREATE2_DEPLOYER, hex"00");
         vm.expectRevert("deterministic deployer missing");
         script.run(
-            address(baseEndpoint), address(adapter), address(t), GAS, keccak256("2"), predicted, EVIDENCE
+            address(baseEndpoint),
+            address(adapter),
+            address(t),
+            GAS,
+            MAX_BATCH,
+            keccak256("2"),
+            predicted,
+            EVIDENCE
         );
     }
 
@@ -53,11 +81,12 @@ contract OwnerScriptsTest is ReplacementTestBase {
             GAS,
             GAS,
             GAS,
+            MAX_BATCH,
             SALT,
             EVIDENCE
         );
         assertEq(derived, t.baseReceiver());
-        assertEq(derived, t.predictReceiver(address(baseEndpoint), address(adapter), GAS, SALT));
+        assertEq(derived, t.predictReceiver(address(baseEndpoint), address(adapter), GAS, MAX_BATCH, SALT));
         assertFalse(t.purchasesEnabled());
         bytes32 config = t.configurationHash();
         vm.expectRevert("setup incomplete");

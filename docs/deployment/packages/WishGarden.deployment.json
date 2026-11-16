@@ -947,7 +947,7 @@
     ]
   ],
   "sourceSHA256": {
-    "base/src/BaseBurnReceiver.sol": "bcab827281daa181316fa31292e2a635ed7bc9f1608345388a96679cd2100e38",
+    "base/src/BaseBurnReceiver.sol": "c8faeb883aa5aefb01404660a74ab557f5df830a891611cb0cea852966a1cc45",
     "lib/openzeppelin-contracts/contracts/access/Ownable.sol": "38578bd71c0a909840e67202db527cc6b4e6b437e0f39f0c909da32c1e30cb81",
     "lib/openzeppelin-contracts/contracts/access/Ownable2Step.sol": "c75345d7b9feef17ae29f2a800ca2f65f8021cf80436a41d6ec00f57f5180f36",
     "lib/openzeppelin-contracts/contracts/interfaces/IERC1363.sol": "ba5b3b99bec389b04e2e9865fccce5f0b97546e666ca246fb87d9c91e2cb43bd",
@@ -965,8 +965,8 @@
     "src/WishGardenTreasury.sol": "fb4e43630a9ddd929bae27cf7b519053fe4fe099ee0670d42b6a559c067b3ce0",
     "src/WishText.sol": "6b8cc2256a32814b40e5814c1c21a615b664bdd75729350588201c341a6080a9",
     "src/bridge/BridgeMessages.sol": "b2aeed2f7c074d4c604b8a988fc129085dee2736f71be89f4dfcac714058d193",
-    "src/bridge/IMDBridgeInterfaces.sol": "35bd49279f993924411207e8bd77ecc438c5cbe89f5147f23e4402a5331ce0bc",
-    "src/bridge/IMDBurnQueue.sol": "269792cc64eea12567d5c4deb4f40004354979d228ade2ae8fbe6c419bac1fa9",
+    "src/bridge/IMDBridgeInterfaces.sol": "44573819ecfd8e4c84837601a3d480e6639053994b76ef5c2c309909ef254117",
+    "src/bridge/IMDBurnQueue.sol": "75e6025ec1cfe743ee1a40bde842724af845a968b81a86401d6a4b26cb9d6c5e",
     "src/interfaces/IWishGarden.sol": "2be0b40ed309b0cb93f1c84540c6a9953d1721e92ee692047fb31440c494299d"
   },
   "constructorArguments": "See docs/deployment/manifest-handoff.json"

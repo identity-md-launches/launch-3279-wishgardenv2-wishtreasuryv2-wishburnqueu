@@ -73,6 +73,12 @@ def main():
         (8453, base_adapter, "approvalRequired()"), (8453, base_adapter, "decimalConversionRate()"),
         (8453, base_adapter, "oftVersion()"), (8453, BASE_IMD, "decimals()"),
         (8453, BASE_IMD, "balanceOf(address)", base_adapter),
+        # Base token transfer restrictions that bound adapter credits to the receiver (choose maxBatch below them).
+        (8453, BASE_IMD, "limitsInEffect()"), (8453, BASE_IMD, "tradingActive()"),
+        (8453, BASE_IMD, "maxWallet()"), (8453, BASE_IMD, "maxTransactionAmount()"),
+        (8453, BASE_IMD, "totalSupply()"), (8453, BASE_IMD, "owner()"),
+        (8453, BASE_IMD, "isBlacklisted(address)", base_adapter),
+        (8453, BASE_IMD, "isExcludedFromFees(address)", base_adapter),
         (1, LEGACY, "totalCandles()"), (1, LEGACY, "freeCandles()"),
         (1, LEGACY, "collectionConfirmed()"), (1, LEGACY_TREASURY, "garden()"),
         (1, LEGACY_TREASURY, "totalPayments()"), (1, LEGACY_TREASURY, "burnSink()")
@@ -99,6 +105,7 @@ def main():
             "Owner deployment and verification of BaseBurnReceiver for the confirmed Ethereum treasury",
             "Default send/receive libraries, DVNs, confirmations and executor settings for both OFT and acknowledgement paths",
             "Actual destination balance delta, reserve liquidity and fee/tax exclusions for the deployed Base receiver",
+            "Owner choice of maxBatch at or below the Base token's maxWallet while limitsInEffect (the receiver refuses readiness otherwise), and re-check of limitsInEffect/tradingActive/maxWallet/blacklist for the final receiver",
             "Current native fee quotes, OFT compose encoding/options and gas simulation using final addresses",
             "Authenticated Base readiness receipt and owner activation only after review of all evidence"
         ]

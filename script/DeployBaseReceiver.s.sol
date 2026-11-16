@@ -26,10 +26,12 @@ contract DeployBaseReceiver is Script {
         address baseOFT,
         address confirmedEthereumQueue,
         uint128 acknowledgementGas,
+        uint256 maxBatch,
         bytes32 salt
     ) public pure returns (address) {
-        bytes32 initCodeHash =
-            keccak256(_initCode(endpoint, baseOFT, confirmedEthereumQueue, acknowledgementGas));
+        bytes32 initCodeHash = keccak256(
+            _initCode(endpoint, baseOFT, confirmedEthereumQueue, acknowledgementGas, maxBatch)
+        );
         return address(
             uint160(uint256(keccak256(abi.encodePacked(bytes1(0xff), CREATE2_DEPLOYER, salt, initCodeHash))))
         );
@@ -40,6 +42,7 @@ contract DeployBaseReceiver is Script {
         address baseOFT,
         address confirmedEthereumQueue,
         uint128 acknowledgementGas,
+        uint256 maxBatch,
         bytes32 salt,
         address expectedReceiver,
         bytes32 reviewedEvidence
@@ -59,12 +62,15 @@ contract DeployBaseReceiver is Script {
             IIMDOFT(baseOFT).peers(ETHEREUM_EID) == bytes32(uint256(uint160(ETHEREUM_IMD))),
             "wrong reciprocal peer"
         );
-        address predicted = predict(endpoint, baseOFT, confirmedEthereumQueue, acknowledgementGas, salt);
+        address predicted =
+            predict(endpoint, baseOFT, confirmedEthereumQueue, acknowledgementGas, maxBatch, salt);
         require(predicted == expectedReceiver, "predicted address differs from the Ethereum treasury's");
         require(predicted.code.length == 0, "already deployed");
         vm.startBroadcast(OWNER);
         (bool ok, bytes memory returned) = CREATE2_DEPLOYER.call(
-            bytes.concat(salt, _initCode(endpoint, baseOFT, confirmedEthereumQueue, acknowledgementGas))
+            bytes.concat(
+                salt, _initCode(endpoint, baseOFT, confirmedEthereumQueue, acknowledgementGas, maxBatch)
+            )
         );
         vm.stopBroadcast();
         require(ok && returned.length == 20, "deterministic deployment failed");
@@ -72,19 +78,21 @@ contract DeployBaseReceiver is Script {
         require(address(receiver) == predicted && predicted.code.length != 0, "unexpected receiver address");
         require(
             receiver.ethereumQueue() == confirmedEthereumQueue && receiver.baseOFT() == baseOFT
-                && receiver.endpoint() == endpoint,
+                && receiver.endpoint() == endpoint && receiver.maxBatch() == maxBatch,
             "receiver bindings differ"
         );
     }
 
-    function _initCode(address endpoint, address baseOFT, address queue, uint128 acknowledgementGas)
-        private
-        pure
-        returns (bytes memory)
-    {
+    function _initCode(
+        address endpoint,
+        address baseOFT,
+        address queue,
+        uint128 acknowledgementGas,
+        uint256 maxBatch
+    ) private pure returns (bytes memory) {
         return bytes.concat(
             type(BaseBurnReceiver).creationCode,
-            abi.encode(endpoint, baseOFT, queue, ETHEREUM_EID, BASE_EID, acknowledgementGas)
+            abi.encode(endpoint, baseOFT, queue, ETHEREUM_EID, BASE_EID, acknowledgementGas, maxBatch)
         );
     }
 }

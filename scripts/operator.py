@@ -38,6 +38,8 @@ def main():
     status = sub.add_parser("status"); status.add_argument("--queue", type=address, required=True)
     dispatch = sub.add_parser("dispatch"); dispatch.add_argument("--queue", type=address, required=True); dispatch.add_argument("--amount", type=nonnegative, required=True)
     ack = sub.add_parser("ack"); ack.add_argument("--receiver", type=address, required=True); ack.add_argument("--batch", type=nonnegative, required=True)
+    surplus = sub.add_parser("burn-surplus"); surplus.add_argument("--receiver", type=address, required=True)
+    receiver_status = sub.add_parser("receiver-status"); receiver_status.add_argument("--receiver", type=address, required=True)
     retry = sub.add_parser("retry-compose"); retry.add_argument("--receiver", type=address, required=True); retry.add_argument("--guid", required=True); retry.add_argument("--message", required=True)
     args = parser.parse_args()
     chain = int(dep.rpc(args.rpc, "eth_chainId", []), 16)
@@ -53,14 +55,25 @@ def main():
     if dep.rpc(args.rpc, "eth_getCode", [target, block]) == "0x":
         raise SystemExit("application has no code")
     if args.action == "status":
-        names = ["purchasesEnabled", "bridgeFrozen", "receiverReady", "pendingBurn", "pendingDust", "inTransitBurn", "confirmedBurn", "totalBurnAllocated", "batchCount", "ecosystemBalance", "operationsBalance", "founderBalance"]
+        names = ["purchasesEnabled", "bridgeFrozen", "receiverReady", "pendingBurn", "pendingDust", "inTransitBurn", "confirmedBurn", "totalBurnAllocated", "batchCount", "maxBatch", "ecosystemBalance", "operationsBalance", "founderBalance"]
         print(json.dumps({"chainId": chain, "block": block, **{n: str(words(read(target, n+"()"))[0]) for n in names}}, indent=2)); return
+    if args.action == "receiver-status":
+        token = dep.address_word(read(target, "IMD()"))
+        names = ["maxBatch", "maxCredit", "totalBurned", "surplusBurned"]
+        print(json.dumps({"chainId": chain, "block": block, **{n: str(words(read(target, n+"()"))[0]) for n in names}, "heldIMD": str(words(read(token, "balanceOf(address)", target))[0]), "note": "maxCredit below maxBatch means a maximum batch cannot land now; held IMD can be burned by anyone with burn-surplus"}, indent=2)); return
     if args.action == "dispatch":
         if words(read(target, "purchasesEnabled()")) != [1]:
             raise SystemExit("purchases/bridge are disabled")
         amount, dust, fee, batch = words(read(target, "quoteDispatch(uint256)", args.amount))
         data = dep.calldata("dispatch(uint256,uint256)", args.amount, batch)
-        note = {"batch": str(batch), "sentBaseUnits": str(amount), "retainedRequestedDust": str(dust), "semantics": "amount is an upper bound clamped to pendingBurn; batch is an upper bound, so an earlier dispatch by someone else does not revert this one", "retry": "Only retry this source send if its transaction reverted. Never resend an in-transit batch."}
+        note = {"batch": str(batch), "sentBaseUnits": str(amount), "retainedRequestedDust": str(dust), "semantics": "amount is an upper bound clamped to pendingBurn and the frozen maxBatch; batch is an upper bound, so an earlier dispatch by someone else does not revert this one", "retry": "Only retry this source send if its transaction reverted. Never resend an in-transit batch."}
+    elif args.action == "burn-surplus":
+        token = dep.address_word(read(target, "IMD()"))
+        held, = words(read(token, "balanceOf(address)", target))
+        if held == 0:
+            raise SystemExit("receiver holds no IMD; nothing to burn")
+        data = dep.calldata("burnSurplus()"); fee = 0
+        note = {"heldBaseUnits": str(held), "semantics": "Burns every IMD the receiver holds (real supply burn) and frees max-wallet headroom. A batch credit burned before its compose is remembered in surplusBurned and that compose still completes once.", "retry": "Safe to repeat; reverts when nothing is held."}
     elif args.action == "ack":
         fee, = words(read(target, "quoteAcknowledgement(uint256)", args.batch))
         data = dep.calldata("sendAcknowledgement(uint256)", args.batch)

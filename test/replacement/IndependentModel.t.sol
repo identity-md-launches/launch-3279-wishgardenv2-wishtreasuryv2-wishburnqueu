@@ -75,6 +75,7 @@ contract ReplacementModel is Test {
         uint256 amount = (uint256(portion) % (available / 0.3e18) + 1) * 0.3e18;
         uint256 requested = portion % 5 == 0 ? available + 1e18 : amount;
         uint256 expectedSent = requested > available ? available : requested;
+        if (expectedSent > 30e18) expectedSent = 30e18; // independently stated frozen fixture cap
         if (fail) {
             token.setSendMode(1);
             vm.expectRevert();

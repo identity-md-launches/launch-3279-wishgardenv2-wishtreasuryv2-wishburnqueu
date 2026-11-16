@@ -19,6 +19,17 @@ contract MockEndpoint {
     bytes32 public lastReceiver;
     uint32 public lastDstEid;
     address public lastSender;
+    address public lastComposeTo;
+    bytes32 public lastComposeGuid;
+    bytes public lastComposeMessage;
+
+    /// @dev EndpointV2.sendCompose as called by the real adapter runtime after it credits the recipient.
+    function sendCompose(address to, bytes32 guid, uint16 index, bytes calldata message) external {
+        require(index == 0, "mock compose index");
+        lastComposeTo = to;
+        lastComposeGuid = guid;
+        lastComposeMessage = message;
+    }
 
     constructor(uint32 eid_) {
         eid = eid_;
@@ -129,6 +140,20 @@ contract MockBaseIMD is AdversarialIMD {
     uint256 public maxWallet;
     mapping(address => bool) public isBlacklisted;
     mapping(address => bool) public _isExcludedMaxTransactionAmount;
+    mapping(address => bool) public isExcludedFromFees;
+    bool public tradingPaused; // inverted so the etched (storage-less) default is "trading active"
+
+    function tradingActive() external view returns (bool) {
+        return !tradingPaused;
+    }
+
+    function setTradingPaused(bool flag) external {
+        tradingPaused = flag;
+    }
+
+    function setExcludedFromFees(address account, bool flag) external {
+        isExcludedFromFees[account] = flag;
+    }
 
     function setBurnMode(uint8 mode) external {
         burnMode = mode;

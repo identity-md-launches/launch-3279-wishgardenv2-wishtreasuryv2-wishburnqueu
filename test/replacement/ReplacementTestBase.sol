@@ -20,6 +20,8 @@ abstract contract ReplacementTestBase is Test {
     bytes32 internal constant EVIDENCE = keccak256("TEST ONLY verified setup");
     bytes32 internal constant SALT = keccak256("TEST ONLY receiver salt");
     uint128 internal constant GAS = 300_000;
+    /// @dev Frozen per-batch dispatch cap used by the fixtures (100 candles' burn share).
+    uint256 internal constant MAX_BATCH = 30e18;
     WishGarden internal garden;
     WishGardenTreasury internal treasury;
     LegacyWishRegistry internal registry;
@@ -66,7 +68,9 @@ abstract contract ReplacementTestBase is Test {
     function _deployReceiver(address queue, bytes32 salt) internal returns (BaseBurnReceiver deployed) {
         bytes memory initCode = bytes.concat(
             type(BaseBurnReceiver).creationCode,
-            abi.encode(address(baseEndpoint), address(adapter), queue, uint32(30101), uint32(30184), GAS)
+            abi.encode(
+                address(baseEndpoint), address(adapter), queue, uint32(30101), uint32(30184), GAS, MAX_BATCH
+            )
         );
         (bool ok, bytes memory returned) = CREATE2_DEPLOYER.call(bytes.concat(salt, initCode));
         require(ok && returned.length == 20, "deterministic deployment failed");
@@ -76,7 +80,15 @@ abstract contract ReplacementTestBase is Test {
     function _freeze() internal {
         vm.prank(OWNER);
         treasury.freezeBridge(
-            address(ethEndpoint), address(baseEndpoint), address(adapter), GAS, GAS, GAS, SALT, EVIDENCE
+            address(ethEndpoint),
+            address(baseEndpoint),
+            address(adapter),
+            GAS,
+            GAS,
+            GAS,
+            MAX_BATCH,
+            SALT,
+            EVIDENCE
         );
         assertEq(treasury.baseReceiver(), address(receiver), "derived receiver must match deployment");
     }

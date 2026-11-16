@@ -60,6 +60,25 @@ class OperatorPlans(unittest.TestCase):
         with self.assertRaisesRegex(SystemExit, "wrong chain"):
             self.run_plan(["ack", "--receiver", RECEIVER, "--batch", "1"], 1, {})
 
+    def test_burn_surplus_plan_is_unsigned_zero_value_and_refuses_when_nothing_held(self):
+        token = "0x" + "66" * 20
+        responses = {
+            op.dep.calldata("IMD()"): words(int(token, 16)),
+            op.dep.calldata("balanceOf(address)", RECEIVER): words(7 * 10**18),
+        }
+        result, calls = self.run_plan(["burn-surplus", "--receiver", RECEIVER], 8453, responses)
+        self.assertEqual(result["to"], RECEIVER)
+        self.assertEqual(result["data"], op.dep.calldata("burnSurplus()"))
+        self.assertEqual(result["value"], "0x0")
+        self.assertEqual(result["heldBaseUnits"], str(7 * 10**18))
+        self.assertTrue(result["unsigned"])
+        self.assertTrue(all(method.startswith("eth_") for method, _ in calls))
+        responses[op.dep.calldata("balanceOf(address)", RECEIVER)] = words(0)
+        with self.assertRaisesRegex(SystemExit, "nothing to burn"):
+            self.run_plan(["burn-surplus", "--receiver", RECEIVER], 8453, responses)
+        with self.assertRaisesRegex(SystemExit, "wrong chain"):
+            self.run_plan(["burn-surplus", "--receiver", RECEIVER], 1, responses)
+
     def test_ack_never_purchases_or_rebridges(self):
         result, _ = self.run_plan(["ack", "--receiver", RECEIVER, "--batch", "9"], 8453, {op.dep.calldata("quoteAcknowledgement(uint256)", 9): words(54321)})
         self.assertEqual(result["data"], op.dep.calldata("sendAcknowledgement(uint256)", 9))

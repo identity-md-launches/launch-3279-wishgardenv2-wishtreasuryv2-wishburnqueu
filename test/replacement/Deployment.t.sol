@@ -34,7 +34,9 @@ contract ReplacementDeploymentTest is ReplacementTestBase {
         assertEq(t.garden(), address(0));
         assertEq(t.baseReceiver(), address(0));
         assertEq(r.LEGACY_GARDEN(), registry.LEGACY_GARDEN());
-        new BaseBurnReceiver(address(ethEndpoint), address(adapter), address(t), 30101, 30184, 300_000);
+        new BaseBurnReceiver(
+            address(ethEndpoint), address(adapter), address(t), 30101, 30184, 300_000, MAX_BATCH
+        );
     }
 
     function test_purchasesCannotActivateWithoutFreezeAndAuthenticatedReceiverReadiness() public {
@@ -45,7 +47,15 @@ contract ReplacementDeploymentTest is ReplacementTestBase {
         vm.expectRevert(IMDBurnQueue.BridgeNotReady.selector);
         t.activatePurchases();
         t.freezeBridge(
-            address(ethEndpoint), address(baseEndpoint), address(adapter), GAS, GAS, GAS, SALT, EVIDENCE
+            address(ethEndpoint),
+            address(baseEndpoint),
+            address(adapter),
+            GAS,
+            GAS,
+            GAS,
+            MAX_BATCH,
+            SALT,
+            EVIDENCE
         );
         vm.expectRevert(IMDBurnQueue.BridgeNotReady.selector);
         t.activatePurchases();
@@ -64,19 +74,47 @@ contract ReplacementDeploymentTest is ReplacementTestBase {
         vm.startPrank(OWNER);
         vm.expectRevert(IMDBurnQueue.InvalidBridgeConfiguration.selector);
         t.freezeBridge(
-            address(ethEndpoint), address(baseEndpoint), address(adapter), GAS, GAS, GAS, SALT, bytes32(0)
+            address(ethEndpoint),
+            address(baseEndpoint),
+            address(adapter),
+            GAS,
+            GAS,
+            GAS,
+            MAX_BATCH,
+            SALT,
+            bytes32(0)
         );
         vm.expectRevert(IMDBurnQueue.InvalidBridgeConfiguration.selector);
         t.freezeBridge(
-            address(baseEndpoint), address(baseEndpoint), address(adapter), GAS, GAS, GAS, SALT, EVIDENCE
+            address(baseEndpoint),
+            address(baseEndpoint),
+            address(adapter),
+            GAS,
+            GAS,
+            GAS,
+            MAX_BATCH,
+            SALT,
+            EVIDENCE
         );
         vm.expectRevert(IMDBurnQueue.InvalidBridgeConfiguration.selector);
-        t.freezeBridge(address(ethEndpoint), address(baseEndpoint), bob, GAS, GAS, GAS, SALT, EVIDENCE);
-        vm.expectRevert(IMDBurnQueue.InvalidBridgeConfiguration.selector);
-        t.freezeBridge(address(ethEndpoint), address(0), address(adapter), GAS, GAS, GAS, SALT, EVIDENCE);
+        t.freezeBridge(
+            address(ethEndpoint), address(baseEndpoint), bob, GAS, GAS, GAS, MAX_BATCH, SALT, EVIDENCE
+        );
         vm.expectRevert(IMDBurnQueue.InvalidBridgeConfiguration.selector);
         t.freezeBridge(
-            address(ethEndpoint), address(baseEndpoint), address(adapter), GAS, GAS, 99_999, SALT, EVIDENCE
+            address(ethEndpoint), address(0), address(adapter), GAS, GAS, GAS, MAX_BATCH, SALT, EVIDENCE
+        );
+        vm.expectRevert(IMDBurnQueue.InvalidBridgeConfiguration.selector);
+        t.freezeBridge(
+            address(ethEndpoint),
+            address(baseEndpoint),
+            address(adapter),
+            GAS,
+            GAS,
+            99_999,
+            MAX_BATCH,
+            SALT,
+            EVIDENCE
         );
         vm.stopPrank();
         assertFalse(t.bridgeFrozen());
@@ -97,17 +135,21 @@ contract ReplacementDeploymentTest is ReplacementTestBase {
         // Another treasury, salt, gas or adapter derives a different address.
         WishGardenTreasury other = new WishGardenTreasury(OWNER);
         assertTrue(
-            other.predictReceiver(address(baseEndpoint), address(adapter), GAS, SALT) != address(receiver)
-        );
-        assertTrue(
-            treasury.predictReceiver(address(baseEndpoint), address(adapter), GAS, keccak256("other"))
+            other.predictReceiver(address(baseEndpoint), address(adapter), GAS, MAX_BATCH, SALT)
                 != address(receiver)
         );
         assertTrue(
-            treasury.predictReceiver(address(baseEndpoint), address(adapter), GAS + 1, SALT)
+            treasury.predictReceiver(
+                    address(baseEndpoint), address(adapter), GAS, MAX_BATCH, keccak256("other")
+                ) != address(receiver)
+        );
+        assertTrue(
+            treasury.predictReceiver(address(baseEndpoint), address(adapter), GAS + 1, MAX_BATCH, SALT)
                 != address(receiver)
         );
-        assertTrue(treasury.predictReceiver(address(baseEndpoint), bob, GAS, SALT) != address(receiver));
+        assertTrue(
+            treasury.predictReceiver(address(baseEndpoint), bob, GAS, MAX_BATCH, SALT) != address(receiver)
+        );
         // The same salt places a receiver bound to a different queue at a different address, never at the
         // frozen one, and the frozen address is already occupied by the code bound to this treasury.
         BaseBurnReceiver forOther = _deployReceiver(address(other), SALT);
@@ -123,14 +165,16 @@ contract ReplacementDeploymentTest is ReplacementTestBase {
                     address(treasury),
                     uint32(30101),
                     uint32(30184),
-                    GAS
+                    GAS,
+                    MAX_BATCH
                 )
             )
         );
         assertFalse(ok, "frozen address cannot be redeployed");
         // The predicted address for a fresh salt is empty until the compiled code is deployed there.
         bytes32 fresh = keccak256("fresh");
-        address predicted = treasury.predictReceiver(address(baseEndpoint), address(adapter), GAS, fresh);
+        address predicted =
+            treasury.predictReceiver(address(baseEndpoint), address(adapter), GAS, MAX_BATCH, fresh);
         assertEq(predicted.code.length, 0);
         BaseBurnReceiver deployed = _deployReceiver(address(treasury), fresh);
         assertEq(address(deployed), predicted);
@@ -155,6 +199,7 @@ contract ReplacementDeploymentTest is ReplacementTestBase {
             GAS,
             GAS,
             GAS,
+            MAX_BATCH,
             keccak256("x"),
             EVIDENCE
         );

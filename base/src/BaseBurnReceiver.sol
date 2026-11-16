@@ -23,8 +23,7 @@ contract BaseBurnReceiver is ReentrancyGuard {
     address public constant IMD = 0xFF0C532FDB8Cd566Ae169C1CB157ff2Bdc83E105;
     address public constant ETHEREUM_IMD = 0xD34a99Bc0f67aE1bbd63C660e6d0b0dd03E263B7;
     uint256 public constant CHAIN_ID = 8453;
-    /// @notice Smallest credit the receiver must be able to accept before it signals readiness (one candle's
-    ///         burn share, the Ethereum queue's minimum batch).
+    /// @notice Lower bound of `maxBatch` (one candle's burn share, the Ethereum queue's minimum batch).
     uint256 public constant MIN_CREDIT = 0.3e18;
     address public immutable endpoint;
     address public immutable baseOFT;
@@ -32,7 +31,16 @@ contract BaseBurnReceiver is ReentrancyGuard {
     uint32 public immutable ethereumEid;
     uint32 public immutable baseEid;
     uint128 public immutable acknowledgementGas;
+    /// @notice Largest single batch the Ethereum queue may dispatch. Frozen there and part of this address's
+    ///         derivation, so readiness is only signalled while one such credit can actually land here.
+    uint256 public immutable maxBatch;
+    /// @notice IMD burned for authenticated batches.
     uint256 public totalBurned;
+    /// @notice IMD this receiver burned outside a batch compose and not attributed to a batch: direct
+    ///         transfers ("donations"), plus any batch credit burned by `burnSurplus` before its compose ran,
+    ///         which that compose then draws back out. Real burns by this contract equal
+    ///         `totalBurned + surplusBurned`, so `totalBurned` never exceeds what was actually destroyed.
+    uint256 public surplusBurned;
 
     struct Burn {
         bytes32 guid;
@@ -57,6 +65,7 @@ contract BaseBurnReceiver is ReentrancyGuard {
         uint256 supplyAfter
     );
     event AcknowledgementSent(uint256 indexed batchId, bytes32 indexed messageGuid);
+    event SurplusBurned(address indexed caller, uint256 amount, uint256 supplyBefore, uint256 supplyAfter);
 
     constructor(
         address endpoint_,
@@ -64,13 +73,14 @@ contract BaseBurnReceiver is ReentrancyGuard {
         address ethereumQueue_,
         uint32 ethereumEid_,
         uint32 baseEid_,
-        uint128 acknowledgementGas_
+        uint128 acknowledgementGas_,
+        uint256 maxBatch_
     ) {
         if (
             endpoint_ == address(0) || baseOFT_ == address(0) || ethereumQueue_ == address(0)
                 || baseOFT_ == IMD || baseOFT_ == address(this) || ethereumEid_ == 0 || baseEid_ == 0
                 || ethereumEid_ == baseEid_ || acknowledgementGas_ < 100_000
-                || acknowledgementGas_ > 5_000_000
+                || acknowledgementGas_ > 5_000_000 || maxBatch_ < MIN_CREDIT
         ) {
             revert InvalidConfiguration();
         }
@@ -80,6 +90,7 @@ contract BaseBurnReceiver is ReentrancyGuard {
         ethereumEid = ethereumEid_;
         baseEid = baseEid_;
         acknowledgementGas = acknowledgementGas_;
+        maxBatch = maxBatch_;
     }
 
     /// @notice LayerZero OFTComposeMsgCodec v1: nonce(8), srcEid(4), amountLD(32), composeFrom(32), payload(96).
@@ -111,8 +122,27 @@ contract BaseBurnReceiver is ReentrancyGuard {
         consumedGuid[guid] = true;
         burns[batchId] = Burn(guid, creditedAmount);
         totalBurned += creditedAmount;
-        (uint256 beforeSupply, uint256 afterSupply) = _burnExact(creditedAmount);
+        // The adapter credits this receiver before it queues the compose. If `burnSurplus` already burned
+        // part of that credit, the shortfall is taken from `surplusBurned` (really burned, not yet attributed);
+        // nothing else can cover a shortage, so a compose without its credit still reverts.
+        uint256 held = IERC20(IMD).balanceOf(address(this));
+        uint256 fromBalance = held < creditedAmount ? held : creditedAmount;
+        uint256 alreadyBurned = creditedAmount - fromBalance;
+        if (alreadyBurned > surplusBurned) revert InexactBurn();
+        surplusBurned -= alreadyBurned;
+        (uint256 beforeSupply, uint256 afterSupply) = _burnExact(fromBalance);
         emit IMDBurned(batchId, guid, creditedAmount, beforeSupply, afterSupply);
+    }
+
+    /// @notice Anyone may burn every IMD this receiver holds. Nothing can leave it any other way.
+    /// @dev A direct transfer to the receiver would otherwise sit here forever and use up the Base token's
+    ///      max-wallet headroom, blocking readiness and every later adapter credit. Burning it frees the
+    ///      headroom and makes the donation a real supply burn. Burning a batch credit before its compose is
+    ///      harmless: the amount is remembered in `surplusBurned` and that compose completes from it.
+    function burnSurplus() external nonReentrant returns (uint256 amount) {
+        _requireBase();
+        amount = _burnHeld();
+        if (amount == 0) revert InexactBurn();
     }
 
     /// @notice batchId 0 is a readiness handshake; positive IDs acknowledge already completed burns only.
@@ -132,8 +162,10 @@ contract BaseBurnReceiver is ReentrancyGuard {
     {
         _requireBase();
         if (batchId == 0) {
+            // Burn whatever is held first (also proves the public burn selector is callable, even for zero),
+            // so a donation can never keep the credit headroom below one maximum batch.
+            _burnHeld();
             _checkDependencies();
-            _burnExact(0); // Verify the public burn selector is callable before signaling readiness.
         }
         MessagingParams memory params = _ackParams(batchId);
         MessagingFee memory fee = IBridgeEndpoint(endpoint).quote(params, address(this));
@@ -169,13 +201,18 @@ contract BaseBurnReceiver is ReentrancyGuard {
     }
 
     /// @notice Largest single adapter credit the Base token's transfer limits allow this receiver right now.
-    /// @dev Unlimited while limits are off or the receiver is excluded; otherwise maxWallet headroom. Credits
-    ///      above it revert in the adapter's lzReceive and stay retryable, so keep batches below it.
+    /// @dev Unlimited while limits are off. While they are on: zero if trading is not active and neither the
+    ///      adapter nor this receiver is fee-excluded (the token then rejects the transfer); unlimited if the
+    ///      receiver is max-transaction excluded; otherwise maxWallet headroom, which `burnSurplus` restores
+    ///      to the whole maxWallet. Credits above it revert in the adapter's lzReceive and stay retryable.
     function maxCredit() public view returns (uint256) {
         IBaseIMDRestrictions token = IBaseIMDRestrictions(IMD);
-        if (!token.limitsInEffect() || token._isExcludedMaxTransactionAmount(address(this))) {
-            return type(uint256).max;
-        }
+        if (!token.limitsInEffect()) return type(uint256).max;
+        if (
+            !token.tradingActive() && !token.isExcludedFromFees(baseOFT)
+                && !token.isExcludedFromFees(address(this))
+        ) return 0;
+        if (token._isExcludedMaxTransactionAmount(address(this))) return type(uint256).max;
         uint256 wallet = token.maxWallet();
         uint256 held = IERC20(IMD).balanceOf(address(this));
         return wallet > held ? wallet - held : 0;
@@ -193,12 +230,19 @@ contract BaseBurnReceiver is ReentrancyGuard {
         ) {
             revert InvalidConfiguration();
         }
-        // A blacklisted receiver or adapter, or a max-wallet below one minimum batch, makes every credit
-        // revert even though burn(0) succeeds. Readiness must not be signalled then.
+        // A blacklisted receiver or adapter, inactive trading, or a max-wallet below one maximum batch makes
+        // credits revert even though burn(0) succeeds. Readiness must not be signalled then.
         IBaseIMDRestrictions token = IBaseIMDRestrictions(IMD);
-        if (token.isBlacklisted(address(this)) || token.isBlacklisted(baseOFT) || maxCredit() < MIN_CREDIT) {
+        if (token.isBlacklisted(address(this)) || token.isBlacklisted(baseOFT) || maxCredit() < maxBatch) {
             revert CreditRestricted();
         }
+    }
+
+    function _burnHeld() private returns (uint256 amount) {
+        amount = IERC20(IMD).balanceOf(address(this));
+        surplusBurned += amount;
+        (uint256 beforeSupply, uint256 afterSupply) = _burnExact(amount);
+        if (amount != 0) emit SurplusBurned(msg.sender, amount, beforeSupply, afterSupply);
     }
 
     function _burnExact(uint256 amount) private returns (uint256 beforeSupply, uint256 afterSupply) {
