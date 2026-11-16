@@ -45,14 +45,7 @@ contract ReplacementDeploymentTest is ReplacementTestBase {
         vm.expectRevert(IMDBurnQueue.BridgeNotReady.selector);
         t.activatePurchases();
         t.freezeBridge(
-            address(ethEndpoint),
-            30101,
-            30184,
-            address(adapter),
-            address(receiver),
-            300_000,
-            300_000,
-            EVIDENCE
+            address(ethEndpoint), address(baseEndpoint), address(adapter), GAS, GAS, GAS, SALT, EVIDENCE
         );
         vm.expectRevert(IMDBurnQueue.BridgeNotReady.selector);
         t.activatePurchases();
@@ -71,30 +64,112 @@ contract ReplacementDeploymentTest is ReplacementTestBase {
         vm.startPrank(OWNER);
         vm.expectRevert(IMDBurnQueue.InvalidBridgeConfiguration.selector);
         t.freezeBridge(
-            address(ethEndpoint),
-            30101,
-            30184,
-            address(adapter),
-            address(receiver),
-            300_000,
-            300_000,
-            bytes32(0)
+            address(ethEndpoint), address(baseEndpoint), address(adapter), GAS, GAS, GAS, SALT, bytes32(0)
         );
         vm.expectRevert(IMDBurnQueue.InvalidBridgeConfiguration.selector);
         t.freezeBridge(
-            address(baseEndpoint),
-            30101,
-            30184,
-            address(adapter),
-            address(receiver),
-            300_000,
-            300_000,
-            EVIDENCE
+            address(baseEndpoint), address(baseEndpoint), address(adapter), GAS, GAS, GAS, SALT, EVIDENCE
         );
         vm.expectRevert(IMDBurnQueue.InvalidBridgeConfiguration.selector);
-        t.freezeBridge(address(ethEndpoint), 30101, 30184, bob, address(receiver), 300_000, 300_000, EVIDENCE);
+        t.freezeBridge(address(ethEndpoint), address(baseEndpoint), bob, GAS, GAS, GAS, SALT, EVIDENCE);
+        vm.expectRevert(IMDBurnQueue.InvalidBridgeConfiguration.selector);
+        t.freezeBridge(address(ethEndpoint), address(0), address(adapter), GAS, GAS, GAS, SALT, EVIDENCE);
+        vm.expectRevert(IMDBurnQueue.InvalidBridgeConfiguration.selector);
+        t.freezeBridge(
+            address(ethEndpoint), address(baseEndpoint), address(adapter), GAS, GAS, 99_999, SALT, EVIDENCE
+        );
         vm.stopPrank();
         assertFalse(t.bridgeFrozen());
+    }
+
+    /// @notice The receiver is derived from the compiled receiver code, the treasury and the fixed EIDs;
+    ///         it matches the deterministic deployer's actual CREATE2 result and no owner argument names it.
+    function test_receiverIsDerivedFromCompiledCodeTreasuryAndSaltNotOwnerChoice() public {
+        assertEq(treasury.receiverCreationCodeHash(), keccak256(type(BaseBurnReceiver).creationCode));
+        assertEq(treasury.baseReceiver(), address(receiver));
+        assertEq(treasury.receiverSalt(), SALT);
+        assertEq(treasury.baseEndpoint(), address(baseEndpoint));
+        assertEq(treasury.acknowledgementGas(), GAS);
+        assertEq(receiver.ethereumQueue(), address(treasury));
+        assertEq(receiver.ethereumEid(), treasury.ETHEREUM_EID());
+        assertEq(receiver.baseEid(), treasury.BASE_EID());
+        assertGt(address(receiver).code.length, 0);
+        // Another treasury, salt, gas or adapter derives a different address.
+        WishGardenTreasury other = new WishGardenTreasury(OWNER);
+        assertTrue(
+            other.predictReceiver(address(baseEndpoint), address(adapter), GAS, SALT) != address(receiver)
+        );
+        assertTrue(
+            treasury.predictReceiver(address(baseEndpoint), address(adapter), GAS, keccak256("other"))
+                != address(receiver)
+        );
+        assertTrue(
+            treasury.predictReceiver(address(baseEndpoint), address(adapter), GAS + 1, SALT)
+                != address(receiver)
+        );
+        assertTrue(treasury.predictReceiver(address(baseEndpoint), bob, GAS, SALT) != address(receiver));
+        // The same salt places a receiver bound to a different queue at a different address, never at the
+        // frozen one, and the frozen address is already occupied by the code bound to this treasury.
+        BaseBurnReceiver forOther = _deployReceiver(address(other), SALT);
+        assertTrue(address(forOther) != address(receiver));
+        assertEq(forOther.ethereumQueue(), address(other));
+        (bool ok,) = CREATE2_DEPLOYER.call(
+            bytes.concat(
+                SALT,
+                type(BaseBurnReceiver).creationCode,
+                abi.encode(
+                    address(baseEndpoint),
+                    address(adapter),
+                    address(treasury),
+                    uint32(30101),
+                    uint32(30184),
+                    GAS
+                )
+            )
+        );
+        assertFalse(ok, "frozen address cannot be redeployed");
+        // The predicted address for a fresh salt is empty until the compiled code is deployed there.
+        bytes32 fresh = keccak256("fresh");
+        address predicted = treasury.predictReceiver(address(baseEndpoint), address(adapter), GAS, fresh);
+        assertEq(predicted.code.length, 0);
+        BaseBurnReceiver deployed = _deployReceiver(address(treasury), fresh);
+        assertEq(address(deployed), predicted);
+        // Live-observed deployer facts the derivation relies on.
+        assertEq(CREATE2_DEPLOYER.codehash, treasury.CREATE2_DEPLOYER_CODE_HASH());
+        assertEq(treasury.ETHEREUM_EID(), 30101);
+        assertEq(treasury.BASE_EID(), 30184);
+    }
+
+    /// @notice Reproduction of the reopened finding: an owner-named EOA can no longer become the receiver,
+    ///         receive the burn allocation or forge READY/BURNED, because no freeze argument names one.
+    function test_ownerCannotFreezeAnEOAReceiverAndEOAMessagesNeverAuthenticate() public {
+        WishGardenTreasury t = new WishGardenTreasury(OWNER);
+        WishGarden g = new WishGarden(OWNER, address(t));
+        address eoa = 0x0000000000000000000000000000000000000Bad;
+        vm.startPrank(OWNER);
+        t.bindGarden(address(g));
+        t.freezeBridge(
+            address(ethEndpoint),
+            address(baseEndpoint),
+            address(adapter),
+            GAS,
+            GAS,
+            GAS,
+            keccak256("x"),
+            EVIDENCE
+        );
+        vm.stopPrank();
+        assertTrue(t.baseReceiver() != eoa);
+        assertEq(t.baseReceiver().code.length, 0, "not deployed yet: nobody can send from it");
+        bytes memory ready =
+            abi.encode(uint8(1), uint256(0), bytes32(uint256(uint160(address(adapter)))), uint256(8453));
+        vm.prank(address(ethEndpoint));
+        vm.expectRevert(IMDBurnQueue.UnauthenticatedMessage.selector);
+        t.lzReceive(Origin(30184, bytes32(uint256(uint160(eoa))), 1), keccak256(ready), ready, alice, "");
+        assertFalse(t.receiverReady());
+        vm.prank(OWNER);
+        vm.expectRevert(IMDBurnQueue.BridgeNotReady.selector);
+        t.activatePurchases();
     }
 
     function test_allReplacementRuntimeAndInitcodeSizesAndNoForbiddenOpcodes() public view {
@@ -119,6 +194,7 @@ contract ReplacementDeploymentTest is ReplacementTestBase {
         }
         assertLe(type(WishGarden).creationCode.length + 64, 49152);
         assertLe(type(WishGardenTreasury).creationCode.length + 32, 49152);
+        assertLe(address(treasury).code.length, 24576, "treasury embeds the receiver creation code");
         assertLe(type(LegacyWishRegistry).creationCode.length, 49152);
         assertLe(type(BaseBurnReceiver).creationCode.length + 192, 49152);
     }

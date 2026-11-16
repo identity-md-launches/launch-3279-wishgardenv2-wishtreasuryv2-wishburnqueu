@@ -45,12 +45,118 @@ contract BridgeTest is ReplacementTestBase, WalletGas {
         assertEq(next, 1);
         _dispatch(requested);
         assertEq(treasury.pendingBurn(), 0.3e18);
-        // Split a whole pending unit at an arbitrary boundary: unrepresentable remainder stays pending.
-        _dispatch(0.3e18 - 1);
-        assertEq(treasury.pendingBurn(), 1e12);
-        _dispatch(1e12);
+        // A partial split below one candle's share is refused unless it is everything that is left.
+        vm.expectRevert(IMDBurnQueue.InvalidBatch.selector);
+        treasury.dispatch{value: 0.001 ether}(0.3e18 - 1, 2);
+        assertEq(treasury.pendingBurn(), 0.3e18);
+        // Over-asking is clamped to the whole rounded remainder; the dust in the event is what was unsendable.
+        (rounded, dust,, next) = treasury.quoteDispatch(5e18);
+        assertEq(rounded, 0.3e18);
+        assertEq(dust, 0);
+        assertEq(next, 2);
+        _dispatch(5e18);
         assertEq(treasury.pendingBurn(), 0);
         _assertAccounting(2);
+    }
+
+    /// @notice Reopened low finding: a third party can no longer split pending funds into micro-batches or
+    ///         invalidate a prepared dispatch with a front-run; the prepared one still sends what is left.
+    function test_microBatchFrontRunCannotRevertOperatorDispatchOrInflateBatches() public {
+        _buy(10, 0, "");
+        (uint256 amount,, uint256 fee, uint256 next) = treasury.quoteDispatch(3e18);
+        assertEq(amount, 3e18);
+        assertEq(next, 1);
+        vm.prank(bob);
+        vm.expectRevert(IMDBurnQueue.InvalidBatch.selector);
+        treasury.dispatch{value: fee}(1e12, 1);
+        vm.prank(bob);
+        vm.expectRevert(IMDBurnQueue.InvalidBatch.selector);
+        treasury.dispatch{value: fee}(0.3e18 - 1e12, 1);
+        assertEq(treasury.batchCount(), 0);
+        // The smallest batch anyone can split off is one candle's share and costs them the native fee.
+        vm.prank(bob);
+        assertEq(treasury.dispatch{value: fee}(0.3e18, 1), 1);
+        // The operator's prepared call (quoted for batch 1) still succeeds as batch 2 with the remainder.
+        assertEq(treasury.dispatch{value: fee}(3e18, 1 + 1), 2);
+        (, uint256 recorded,) = treasury.batches(2);
+        assertEq(recorded, 2.7e18);
+        assertEq(treasury.pendingBurn(), 0);
+        assertEq(treasury.inTransitBurn(), 3e18);
+        // Nothing left: a further dispatch reverts instead of creating empty batches.
+        vm.expectRevert(IMDBurnQueue.InvalidBatch.selector);
+        treasury.dispatch{value: fee}(3e18, 3);
+        // A stale upper bound (someone already used this batch id) reverts rather than sending unexpectedly.
+        _buy(1, 0, "");
+        vm.expectRevert(IMDBurnQueue.InvalidBatch.selector);
+        treasury.dispatch{value: fee}(0.3e18, 2);
+        assertEq(treasury.batchCount(), 2);
+        _assertAccounting(11);
+    }
+
+    function test_wholeRemainderBelowMinimumIsStillDispatchable() public {
+        _buy(1, 0, "");
+        vm.prank(bob);
+        treasury.dispatch{value: 0.001 ether}(0.3e18, 1);
+        _buy(1, 0, "");
+        // Operator chooses an unusual size: 0.3e18 pending, request 0.2e18 is refused (not whole, below min).
+        vm.expectRevert(IMDBurnQueue.InvalidBatch.selector);
+        treasury.dispatch{value: 0.001 ether}(0.2e18, 2);
+        assertEq(treasury.MIN_DISPATCH(), 0.3e18);
+        _dispatch(0.3e18);
+        assertEq(treasury.pendingBurn(), 0);
+        _assertAccounting(2);
+    }
+
+    /// @notice Reopened medium finding: the receiver cannot be an owner-named wallet. Even if a wallet could
+    ///         speak through the endpoint from Base, its READY/BURNED messages never authenticate, and
+    ///         dispatch only ever sends to the derived receiver address.
+    function test_eoaCannotBecomeReceiverCollectBurnFundsOrForgeConfirmation() public {
+        address eoa = 0x0000000000000000000000000000000000000Bad;
+        _buy(10, 0, "");
+        (uint256 id, bytes32 guid) = _dispatch(3e18);
+        assertEq(token.lastRecipient(), bytes32(uint256(uint160(address(receiver)))));
+        assertTrue(token.lastRecipient() != bytes32(uint256(uint160(eoa))));
+        bytes memory burned = abi.encode(uint8(2), id, guid, uint256(3e18));
+        vm.expectRevert(IMDBurnQueue.UnauthenticatedMessage.selector);
+        _deliverFrom(eoa, burned);
+        vm.expectRevert(IMDBurnQueue.UnauthenticatedMessage.selector);
+        _deliverFrom(OWNER, burned);
+        assertEq(treasury.confirmedBurn(), 0);
+        assertEq(treasury.inTransitBurn(), 3e18);
+        // Only the derived receiver, after an actual exact burn, confirms.
+        _burn(id, guid, 3e18);
+        receiver.sendAcknowledgement{value: 0.001 ether}(id);
+        _deliverAck(baseEndpoint.lastMessage());
+        assertEq(treasury.confirmedBurn(), 3e18);
+    }
+
+    /// @notice Reopened low finding: readiness refuses while the Base token would reject every credit.
+    function test_readinessRefusedWhileBlacklistedOrMaxWalletBelowMinimumBatch() public {
+        vm.chainId(8453);
+        WishGardenTreasury t = new WishGardenTreasury(OWNER);
+        BaseBurnReceiver fresh = _deployReceiver(address(t), keccak256("restricted"));
+        baseToken.setBlacklisted(address(fresh), true);
+        vm.expectRevert(BaseBurnReceiver.CreditRestricted.selector);
+        fresh.sendAcknowledgement{value: 0.001 ether}(0);
+        baseToken.setBlacklisted(address(fresh), false);
+        baseToken.setBlacklisted(address(adapter), true);
+        vm.expectRevert(BaseBurnReceiver.CreditRestricted.selector);
+        fresh.sendAcknowledgement{value: 0.001 ether}(0);
+        baseToken.setBlacklisted(address(adapter), false);
+        baseToken.setLimits(true, 0.3e18 - 1);
+        assertEq(fresh.maxCredit(), 0.3e18 - 1);
+        vm.expectRevert(BaseBurnReceiver.CreditRestricted.selector);
+        fresh.sendAcknowledgement{value: 0.001 ether}(0);
+        baseToken.setLimits(true, 1e18);
+        baseToken.mint(address(fresh), 0.5e18);
+        assertEq(fresh.maxCredit(), 0.5e18);
+        fresh.sendAcknowledgement{value: 0.001 ether}(0);
+        baseToken.setExcluded(address(fresh), true);
+        assertEq(fresh.maxCredit(), type(uint256).max);
+        baseToken.setExcluded(address(fresh), false);
+        baseToken.setLimits(false, 0);
+        assertEq(fresh.maxCredit(), type(uint256).max);
+        assertEq(fresh.MIN_CREDIT(), treasury.MIN_DISPATCH());
     }
 
     function testFuzz_sendFailureRetryNeverDoubleCounts(uint8 modeSeed, uint8 q) public {
@@ -81,11 +187,19 @@ contract BridgeTest is ReplacementTestBase, WalletGas {
         vm.expectRevert(IMDBurnQueue.IncorrectNativeFee.selector);
         treasury.dispatch(0.3e18, 1);
         vm.expectRevert(IMDBurnQueue.InvalidBatch.selector);
-        treasury.dispatch{value: 0.001 ether}(0.3e18, 2);
+        treasury.dispatch{value: 0.001 ether}(0.3e18, 0);
         vm.expectRevert(IMDBurnQueue.InvalidBatch.selector);
         treasury.dispatch{value: 0.001 ether}(1, 1);
         vm.expectRevert(IMDBurnQueue.InvalidBatch.selector);
+        treasury.dispatch{value: 0.001 ether}(0, 1);
+        assertEq(treasury.batchCount(), 0);
+        // Asking for more than pending sends the whole rounded pending balance, never more.
         treasury.dispatch{value: 0.001 ether}(1e18, 1);
+        (, uint256 recorded,) = treasury.batches(1);
+        assertEq(recorded, 0.3e18);
+        assertEq(treasury.pendingBurn(), 0);
+        vm.expectRevert(IMDBurnQueue.InvalidBatch.selector);
+        treasury.dispatch{value: 0.001 ether}(1e18, 2);
         _assertAccounting(1);
     }
 

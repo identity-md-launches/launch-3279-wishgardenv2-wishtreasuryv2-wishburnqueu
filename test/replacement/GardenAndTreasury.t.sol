@@ -262,7 +262,7 @@ contract ReplacementTreasuryTest is ReplacementTestBase {
         treasury.activatePurchases();
         vm.expectRevert();
         treasury.freezeBridge(
-            address(ethEndpoint), 30101, 30184, address(adapter), bob, 300_000, 300_000, EVIDENCE
+            address(ethEndpoint), address(baseEndpoint), address(adapter), GAS, GAS, GAS, SALT, EVIDENCE
         );
         vm.stopPrank();
     }
@@ -288,7 +288,7 @@ contract ReplacementTreasuryTest is ReplacementTestBase {
         vm.startPrank(OWNER);
         vm.expectRevert(IMDBurnQueue.ConfigurationFrozen.selector);
         treasury.freezeBridge(
-            address(ethEndpoint), 30101, 30184, address(adapter), bob, 300_000, 300_000, EVIDENCE
+            address(ethEndpoint), address(baseEndpoint), address(adapter), GAS, GAS, GAS, SALT, EVIDENCE
         );
         vm.expectRevert(IMDBurnQueue.AlreadyActive.selector);
         treasury.activatePurchases();

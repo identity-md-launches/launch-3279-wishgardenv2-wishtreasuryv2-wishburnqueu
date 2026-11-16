@@ -6,6 +6,7 @@ import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IER
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {
     IBurnableIMD,
+    IBaseIMDRestrictions,
     IIMDOFT,
     IBridgeEndpoint,
     MessagingParams,
@@ -15,11 +16,16 @@ import {
 import {BridgeMessages} from "../../src/bridge/BridgeMessages.sol";
 
 /// @notice BASE ONLY. Fixed official OFT credits can ONLY be burned. No owner, approval, transfer or rescue.
-/// @dev Deploy separately after the Ethereum queue address is confirmed. Never put this in the Ethereum manifest.
+/// @dev Deploy separately through the deterministic CREATE2 deployer with the salt frozen on Ethereum, so the
+///      address equals the one the Ethereum treasury derived from this exact code. Never put this in the
+///      Ethereum manifest.
 contract BaseBurnReceiver is ReentrancyGuard {
     address public constant IMD = 0xFF0C532FDB8Cd566Ae169C1CB157ff2Bdc83E105;
     address public constant ETHEREUM_IMD = 0xD34a99Bc0f67aE1bbd63C660e6d0b0dd03E263B7;
     uint256 public constant CHAIN_ID = 8453;
+    /// @notice Smallest credit the receiver must be able to accept before it signals readiness (one candle's
+    ///         burn share, the Ethereum queue's minimum batch).
+    uint256 public constant MIN_CREDIT = 0.3e18;
     address public immutable endpoint;
     address public immutable baseOFT;
     address public immutable ethereumQueue;
@@ -42,6 +48,7 @@ contract BaseBurnReceiver is ReentrancyGuard {
     error InexactBurn();
     error UnknownBatch();
     error IncorrectNativeFee();
+    error CreditRestricted();
     event IMDBurned(
         uint256 indexed batchId,
         bytes32 indexed guid,
@@ -161,6 +168,19 @@ contract BaseBurnReceiver is ReentrancyGuard {
         );
     }
 
+    /// @notice Largest single adapter credit the Base token's transfer limits allow this receiver right now.
+    /// @dev Unlimited while limits are off or the receiver is excluded; otherwise maxWallet headroom. Credits
+    ///      above it revert in the adapter's lzReceive and stay retryable, so keep batches below it.
+    function maxCredit() public view returns (uint256) {
+        IBaseIMDRestrictions token = IBaseIMDRestrictions(IMD);
+        if (!token.limitsInEffect() || token._isExcludedMaxTransactionAmount(address(this))) {
+            return type(uint256).max;
+        }
+        uint256 wallet = token.maxWallet();
+        uint256 held = IERC20(IMD).balanceOf(address(this));
+        return wallet > held ? wallet - held : 0;
+    }
+
     function _checkDependencies() private view {
         IIMDOFT adapter = IIMDOFT(baseOFT);
         (bytes4 interfaceId, uint64 version) = adapter.oftVersion();
@@ -172,6 +192,12 @@ contract BaseBurnReceiver is ReentrancyGuard {
                 || IERC20Metadata(IMD).decimals() != 18 || interfaceId != 0x02e49c2c || version != 1
         ) {
             revert InvalidConfiguration();
+        }
+        // A blacklisted receiver or adapter, or a max-wallet below one minimum batch, makes every credit
+        // revert even though burn(0) succeeds. Readiness must not be signalled then.
+        IBaseIMDRestrictions token = IBaseIMDRestrictions(IMD);
+        if (token.isBlacklisted(address(this)) || token.isBlacklisted(baseOFT) || maxCredit() < MIN_CREDIT) {
+            revert CreditRestricted();
         }
     }
 

@@ -32,7 +32,9 @@ Final Solidity suite: **133 passing tests, zero failures or skips**, including *
 | Unicode | Valid 1/2/3/4-byte scalar boundaries including U+10FFFF; random valid scalars; isolated continuation/overlong/surrogate/truncated/above-range sequences; 280/281 codepoints and 1120/1121 bytes; combining marks without normalization |
 | Legacy wishes and claims | Archived actual legacy implementation/ABI; recorded purchaser survives NFT transfer; duplicate lifetime claim rejection; one-shot text; unauthorized/admin/nonexistent/empty/unacknowledged writes reject; failed second transaction retries without new purchase; no legacy writes; old funds/donations visible |
 | Owner authorization | All three revenue buckets follow current owner; old owner loses replacement powers; only bound garden can record; setup only owner and once; ownership renunciation blocked; owner cannot withdraw burn funds |
-| Bridge state and failure | Pending/in-transit/confirmed conservation, dust retention, source failure/retry, unique GUIDs/stale batch IDs, exact native fee, dependency changes, delayed credit, partial shortages, wrong source/endpoint/adapter/peer/message/amount and unauthorized receipts |
+| Bridge state and failure | Pending/in-transit/confirmed conservation, dust retention, source failure/retry, unique GUIDs/batch-id upper bound, minimum batch and clamping (micro-batch front-run cannot revert a prepared dispatch or inflate batches), exact native fee, dependency changes, delayed credit, partial shortages, wrong source/endpoint/adapter/peer/message/amount and unauthorized receipts |
+| Derived receiver | `baseReceiver` equals the deterministic deployer's actual CREATE2 result for the compiled receiver code bound to the treasury; other treasury/salt/gas/adapter derive other addresses; the frozen address cannot be redeployed; an EOA named by nobody cannot pass READY, collect dispatched funds or forge BURNED; freeze and Base script agree on the prediction and the script refuses any other address |
+| Base transfer restrictions | Readiness refuses while the token blacklists receiver or adapter, or `maxWallet` headroom is below one minimum batch (mock), and against the real Base IMD runtime with its owner calling `blacklist`/`unblacklist`; `maxCredit()` reports headroom |
 | Base burn and return proof | Exact balance AND totalSupply decrease, false/non-decreasing burn rejection, duplicate compose rejection, authenticated ack, failed ack retry without another burn, duplicates and out-of-order receipts, no withdrawal/approval escape |
 | Wallet-estimated gas behavior | Binary search for the lowest successful gas limit: 50 paid candles with 1120-byte shared wish, source dispatch and Base compose produce identical returns/events to execution with spare gas (under the 16,777,216 test ceiling); no silent skipped work |
 | Constructor/deployment constraints | Three Ethereum constructors deployed in one factory call on empty dependencies, explicit owner, disabled defaults, supported static arguments, bounded init/runtime code, no reachable DELEGATECALL/CALLCODE/SELFDESTRUCT; separate Base constructor/package |
@@ -58,10 +60,10 @@ Byte counts from the unchanged compiler configuration (initcode excludes ABI arg
 
 | Application | Runtime | Initcode | Constructor words |
 | --- | ---: | ---: | ---: |
-| WishGardenTreasury | 13,220 | 13,500 | 1 |
+| WishGardenTreasury (embeds the receiver creation code it derives the receiver from) | 22,103 | 22,383 | 1 |
 | WishGarden | 7,940 | 8,381 | 2 |
 | LegacyWishRegistry | 4,604 | 4,636 | 0 |
-| BaseBurnReceiver (separate Base action) | 6,262 | 6,970 | 6 |
+| BaseBurnReceiver (separate Base action) | 7,140 | 7,856 | 6 |
 
 All runtimes are below 24,576 bytes, all initcode plus arguments below 49,152 bytes, and external link maps are empty. Compiler linter observations about strict balance equality and events after calls were reviewed: equality enforces exact-price/credit/burn behavior, and affected mutating paths are nonReentrant with atomic rollback. Solidity's default-zero scalar loop index is not an uninitialized storage pointer. Configuration changes are committed through the `BridgeFrozen` hash/event and public getters. No finding is dismissed solely because a linter labels it a warning.
 

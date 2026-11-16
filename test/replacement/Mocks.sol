@@ -125,9 +125,26 @@ contract MockIMDOFT is AdversarialIMD {
 
 contract MockBaseIMD is AdversarialIMD {
     uint8 public burnMode;
+    bool public limitsInEffect;
+    uint256 public maxWallet;
+    mapping(address => bool) public isBlacklisted;
+    mapping(address => bool) public _isExcludedMaxTransactionAmount;
 
     function setBurnMode(uint8 mode) external {
         burnMode = mode;
+    }
+
+    function setBlacklisted(address account, bool flag) external {
+        isBlacklisted[account] = flag;
+    }
+
+    function setLimits(bool inEffect, uint256 wallet) external {
+        limitsInEffect = inEffect;
+        maxWallet = wallet;
+    }
+
+    function setExcluded(address account, bool flag) external {
+        _isExcludedMaxTransactionAmount[account] = flag;
     }
 
     function burn(uint256 amount) external {

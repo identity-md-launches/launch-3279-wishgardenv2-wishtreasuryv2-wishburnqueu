@@ -16,31 +16,36 @@ contract OwnerSetup is Script {
         vm.stopBroadcast();
     }
 
+    /// @notice Freezes the bridge. The receiver is not an argument: the treasury derives it from the compiled
+    ///         BaseBurnReceiver code, itself, the fixed endpoint ids, the Base endpoint/adapter/gas and `salt`.
+    ///         Returns the derived address the owner must deploy to on Base with `DeployBaseReceiver`.
     function freeze(
         address queue,
         address endpoint,
-        uint32 ethereumEid,
-        uint32 baseEid,
+        address baseEndpoint,
         address baseOFT,
-        address verifiedBaseReceiver,
         uint128 receiveGas,
         uint128 composeGas,
+        uint128 acknowledgementGas,
+        bytes32 salt,
         bytes32 reviewedEvidence
-    ) external {
+    ) external returns (address derivedReceiver) {
         _check(queue);
+        WishGardenTreasury t = WishGardenTreasury(queue);
+        derivedReceiver = t.predictReceiver(baseEndpoint, baseOFT, acknowledgementGas, salt);
         vm.startBroadcast(OWNER);
-        WishGardenTreasury(queue)
-            .freezeBridge(
-                endpoint,
-                ethereumEid,
-                baseEid,
-                baseOFT,
-                verifiedBaseReceiver,
-                receiveGas,
-                composeGas,
-                reviewedEvidence
-            );
+        t.freezeBridge(
+            endpoint,
+            baseEndpoint,
+            baseOFT,
+            receiveGas,
+            composeGas,
+            acknowledgementGas,
+            salt,
+            reviewedEvidence
+        );
         vm.stopBroadcast();
+        require(t.baseReceiver() == derivedReceiver, "derived receiver mismatch");
     }
 
     function activate(address queue, bytes32 expectedConfigurationHash) external {

@@ -12,8 +12,14 @@ abstract contract ReplacementTestBase is Test {
     address internal constant OWNER = 0x48E4E74fE1d0c14404cEB57B9fec5b21329C6ec9;
     address internal constant IMD = 0xD34a99Bc0f67aE1bbd63C660e6d0b0dd03E263B7;
     address internal constant BASE_IMD = 0xFF0C532FDB8Cd566Ae169C1CB157ff2Bdc83E105;
+    /// @dev Arachnid deterministic deployment proxy: live runtime observed on chains 1 and 8453 (69 bytes).
+    address internal constant CREATE2_DEPLOYER = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
+    bytes internal constant CREATE2_DEPLOYER_CODE =
+        hex"7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf3";
     uint256 internal constant PREFIX = 1 << 255;
     bytes32 internal constant EVIDENCE = keccak256("TEST ONLY verified setup");
+    bytes32 internal constant SALT = keccak256("TEST ONLY receiver salt");
+    uint128 internal constant GAS = 300_000;
     WishGarden internal garden;
     WishGardenTreasury internal treasury;
     LegacyWishRegistry internal registry;
@@ -39,6 +45,7 @@ abstract contract ReplacementTestBase is Test {
         token = MockIMDOFT(IMD);
         vm.etch(BASE_IMD, address(new MockBaseIMD()).code);
         baseToken = MockBaseIMD(BASE_IMD);
+        vm.etch(CREATE2_DEPLOYER, CREATE2_DEPLOYER_CODE);
         adapter = new MockBaseAdapter(address(baseEndpoint), BASE_IMD, IMD);
         token.setup(address(ethEndpoint), address(adapter));
         token.mint(alice, 1_000_000e18);
@@ -46,9 +53,7 @@ abstract contract ReplacementTestBase is Test {
         treasury = new WishGardenTreasury(OWNER);
         garden = new WishGarden(OWNER, address(treasury));
         registry = new LegacyWishRegistry();
-        receiver = new BaseBurnReceiver(
-            address(baseEndpoint), address(adapter), address(treasury), 30101, 30184, 300_000
-        );
+        receiver = _deployReceiver(address(treasury), SALT);
         vm.prank(OWNER);
         treasury.bindGarden(address(garden));
         _freeze();
@@ -57,18 +62,23 @@ abstract contract ReplacementTestBase is Test {
         treasury.activatePurchases();
     }
 
+    /// @dev Deploys the receiver exactly as the owner script does: through the deterministic deployer.
+    function _deployReceiver(address queue, bytes32 salt) internal returns (BaseBurnReceiver deployed) {
+        bytes memory initCode = bytes.concat(
+            type(BaseBurnReceiver).creationCode,
+            abi.encode(address(baseEndpoint), address(adapter), queue, uint32(30101), uint32(30184), GAS)
+        );
+        (bool ok, bytes memory returned) = CREATE2_DEPLOYER.call(bytes.concat(salt, initCode));
+        require(ok && returned.length == 20, "deterministic deployment failed");
+        deployed = BaseBurnReceiver(address(bytes20(returned)));
+    }
+
     function _freeze() internal {
         vm.prank(OWNER);
         treasury.freezeBridge(
-            address(ethEndpoint),
-            30101,
-            30184,
-            address(adapter),
-            address(receiver),
-            300_000,
-            300_000,
-            EVIDENCE
+            address(ethEndpoint), address(baseEndpoint), address(adapter), GAS, GAS, GAS, SALT, EVIDENCE
         );
+        assertEq(treasury.baseReceiver(), address(receiver), "derived receiver must match deployment");
     }
 
     function _ready() internal {
@@ -78,10 +88,14 @@ abstract contract ReplacementTestBase is Test {
     }
 
     function _deliverAck(bytes memory payload) internal {
+        _deliverFrom(address(receiver), payload);
+    }
+
+    function _deliverFrom(address sender, bytes memory payload) internal {
         vm.chainId(1);
         vm.prank(address(ethEndpoint));
         treasury.lzReceive(
-            Origin(30184, bytes32(uint256(uint160(address(receiver)))), 1),
+            Origin(30184, bytes32(uint256(uint160(sender))), 1),
             keccak256(payload),
             payload,
             address(this),

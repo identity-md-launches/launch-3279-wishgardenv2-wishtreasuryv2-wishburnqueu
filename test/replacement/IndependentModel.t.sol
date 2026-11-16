@@ -70,19 +70,24 @@ contract ReplacementModel is Test {
     function dispatch(uint96 portion, bool fail) external {
         vm.chainId(1);
         uint256 available = candles * 0.3e18 - sent;
-        if (available < 1e12) return;
-        uint256 amount = (uint256(portion) % (available / 1e12) + 1) * 1e12;
+        if (available < 0.3e18) return;
+        // Whole-candle multiples (the minimum batch), or an over-asking request that the queue clamps.
+        uint256 amount = (uint256(portion) % (available / 0.3e18) + 1) * 0.3e18;
+        uint256 requested = portion % 5 == 0 ? available + 1e18 : amount;
+        uint256 expectedSent = requested > available ? available : requested;
         if (fail) {
             token.setSendMode(1);
             vm.expectRevert();
-            treasury.dispatch{value: 0.001 ether}(amount, batches.length + 1);
+            treasury.dispatch{value: 0.001 ether}(requested, batches.length + 1);
             token.setSendMode(0);
             return;
         }
-        treasury.dispatch{value: 0.001 ether}(amount, batches.length + 1);
-        (bytes32 guid,,) = treasury.batches(batches.length + 1);
-        batches.push(Batch(amount, guid, false, false));
-        sent += amount;
+        uint256 id = treasury.dispatch{value: 0.001 ether}(requested, batches.length + 1);
+        require(id == batches.length + 1, "model batch id");
+        (bytes32 guid, uint256 recorded,) = treasury.batches(id);
+        require(recorded == expectedSent, "model clamp");
+        batches.push(Batch(recorded, guid, false, false));
+        sent += recorded;
     }
 
     function burnBatch(uint256 seed) external {

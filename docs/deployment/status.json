@@ -8,7 +8,7 @@
     "WishGarden",
     "LegacyWishRegistry"
   ],
-  "basePackage": "base/artifacts/BaseBurnReceiver.deployment.json",
+  "basePackage": "base/package/BaseBurnReceiver.deployment.json",
   "baseDeployment": "separate owner action; excluded from Ethereum launch manifest",
   "confirmedAddresses": null,
   "deploymentTransaction": null,

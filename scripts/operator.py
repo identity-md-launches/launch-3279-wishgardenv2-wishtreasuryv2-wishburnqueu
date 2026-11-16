@@ -60,7 +60,7 @@ def main():
             raise SystemExit("purchases/bridge are disabled")
         amount, dust, fee, batch = words(read(target, "quoteDispatch(uint256)", args.amount))
         data = dep.calldata("dispatch(uint256,uint256)", args.amount, batch)
-        note = {"batch": str(batch), "sentBaseUnits": str(amount), "retainedRequestedDust": str(dust), "retry": "Only retry this source send if its transaction reverted. Never resend an in-transit batch."}
+        note = {"batch": str(batch), "sentBaseUnits": str(amount), "retainedRequestedDust": str(dust), "semantics": "amount is an upper bound clamped to pendingBurn; batch is an upper bound, so an earlier dispatch by someone else does not revert this one", "retry": "Only retry this source send if its transaction reverted. Never resend an in-transit batch."}
     elif args.action == "ack":
         fee, = words(read(target, "quoteAcknowledgement(uint256)", args.batch))
         data = dep.calldata("sendAcknowledgement(uint256)", args.batch)

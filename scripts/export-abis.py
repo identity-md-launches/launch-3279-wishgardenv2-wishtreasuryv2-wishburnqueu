@@ -37,7 +37,7 @@ def main():
         if data["bytecode"].get("linkReferences") or "__" in data["bytecode"]["object"]:
             raise SystemExit("Unlinked artifact: " + name)
         is_base = name == "BaseBurnReceiver"
-        prefix = "base/artifacts" if is_base else "docs/abi"
+        prefix = "base/package" if is_base else "docs/abi"
         write(prefix + "/" + name + ".json", data["abi"])
         sources = data["metadata"]["sources"]
         package = {
@@ -58,7 +58,7 @@ def main():
             "sourceSHA256": {path: hashlib.sha256((ROOT / path).read_bytes()).hexdigest() for path in sorted(sources)},
             "constructorArguments": "See base/README.md; real confirmed addresses required" if is_base else "See docs/deployment/manifest-handoff.json",
         }
-        write(("base/artifacts" if is_base else "docs/deployment/artifacts") + "/" + name + ".deployment.json", package)
+        write(("base/package" if is_base else "docs/deployment/packages") + "/" + name + ".deployment.json", package)
 
 
 if __name__ == "__main__":

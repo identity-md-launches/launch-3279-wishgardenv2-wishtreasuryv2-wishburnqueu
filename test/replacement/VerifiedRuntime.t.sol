@@ -9,7 +9,7 @@ import {MockEndpoint} from "./Mocks.sol";
 import {WishGarden} from "../../src/WishGarden.sol";
 import {WishGardenTreasury} from "../../src/WishGardenTreasury.sol";
 import {BaseBurnReceiver} from "../../base/src/BaseBurnReceiver.sol";
-import {IIMDOFT, Origin} from "../../src/bridge/IMDBridgeInterfaces.sol";
+import {IIMDOFT, IBaseIMDRestrictions, Origin} from "../../src/bridge/IMDBridgeInterfaces.sol";
 
 interface IPeerSetup {
     function setPeer(uint32, bytes32) external;
@@ -35,13 +35,16 @@ contract VerifiedRuntimeTest is Test {
         IPeerSetup(IMD).setPeer(30184, bytes32(uint256(uint160(BASE_ADAPTER))));
         WishGardenTreasury t = new WishGardenTreasury(OWNER);
         WishGarden g = new WishGarden(OWNER, address(t));
-        address receiver = makeAddr("only local receiver fixture");
+        bytes32 salt = keccak256("fixture salt");
+        // The receiver is derived; it does not need to exist for the freeze (it lives on Base).
+        address receiver = t.predictReceiver(endpoint, BASE_ADAPTER, 300_000, salt);
         vm.startPrank(OWNER);
         t.bindGarden(address(g));
         t.freezeBridge(
-            endpoint, 30101, 30184, BASE_ADAPTER, receiver, 300_000, 300_000, keccak256("fixture evidence")
+            endpoint, endpoint, BASE_ADAPTER, 300_000, 300_000, 300_000, salt, keccak256("fixture evidence")
         );
         vm.stopPrank();
+        assertEq(t.baseReceiver(), receiver);
         vm.prank(endpoint);
         t.lzReceive(
             Origin(30184, bytes32(uint256(uint160(receiver))), 1),
@@ -106,4 +109,52 @@ contract VerifiedRuntimeTest is Test {
         assertEq(IERC20(BASE_IMD).balanceOf(address(receiver)), 0);
         assertEq(receiver.totalBurned(), 3e18);
     }
+
+    /// @notice Real Base token runtime: a blacklisted receiver can still burn(0), but readiness now refuses
+    ///         because the token's own `isBlacklisted` view is consulted; lifting it restores readiness.
+    function test_actualBaseBlacklistBlocksReadinessUntilLifted() public {
+        vm.chainId(8453);
+        vm.deal(address(this), 1 ether);
+        vm.etch(BASE_IMD, BaseIMDRuntime.code());
+        vm.etch(BASE_ADAPTER, BaseAdapterRuntime.code());
+        address endpoint = IIMDOFT(BASE_ADAPTER).endpoint();
+        vm.etch(endpoint, address(new MockEndpoint(30184)).code);
+        vm.store(endpoint, bytes32(0), bytes32(uint256(30184)));
+        MockEndpoint(endpoint).setFee(0.001 ether);
+        vm.store(BASE_ADAPTER, bytes32(0), bytes32(uint256(uint160(OWNER))));
+        vm.prank(OWNER);
+        IPeerSetup(BASE_ADAPTER).setPeer(30101, bytes32(uint256(uint160(IMD))));
+        address tokenOwner = makeAddr("base token owner fixture");
+        vm.store(BASE_IMD, bytes32(uint256(5)), bytes32(uint256(uint160(tokenOwner))));
+        assertEq(IOwnable(BASE_IMD).owner(), tokenOwner);
+        address queue = makeAddr("local queue fixture");
+        BaseBurnReceiver receiver = new BaseBurnReceiver(endpoint, BASE_ADAPTER, queue, 30101, 30184, 300_000);
+        assertFalse(IBaseIMDRestrictions(BASE_IMD).limitsInEffect());
+        assertEq(receiver.maxCredit(), type(uint256).max);
+        vm.prank(tokenOwner);
+        IBlacklistAdmin(BASE_IMD).blacklist(address(receiver));
+        assertTrue(IBaseIMDRestrictions(BASE_IMD).isBlacklisted(address(receiver)));
+        vm.expectRevert(BaseBurnReceiver.CreditRestricted.selector);
+        receiver.sendAcknowledgement{value: 0.001 ether}(0);
+        vm.prank(tokenOwner);
+        IBlacklistAdmin(BASE_IMD).unblacklist(address(receiver));
+        receiver.sendAcknowledgement{value: 0.001 ether}(0);
+        assertEq(
+            MockEndpoint(endpoint).lastMessage(),
+            abi.encode(uint8(1), uint256(0), bytes32(uint256(uint160(BASE_ADAPTER))), uint256(8453))
+        );
+        vm.prank(tokenOwner);
+        IBlacklistAdmin(BASE_IMD).blacklist(BASE_ADAPTER);
+        vm.expectRevert(BaseBurnReceiver.CreditRestricted.selector);
+        receiver.sendAcknowledgement{value: 0.001 ether}(0);
+    }
+}
+
+interface IOwnable {
+    function owner() external view returns (address);
+}
+
+interface IBlacklistAdmin {
+    function blacklist(address account) external;
+    function unblacklist(address account) external;
 }
