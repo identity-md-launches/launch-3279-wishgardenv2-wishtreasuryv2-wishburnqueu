@@ -292,4 +292,62 @@ contract BridgeAdversarialTest is ReplacementTestBase, WalletGas {
         require(offset + 32 <= data.length, "test mutation out of bounds");
         assembly ("memory-safe") { mstore(add(add(data, 32), offset), value) }
     }
+
+    /// @notice Independent model of the revised dispatch rule: min(maxAmount, pending) rounded down to a shared
+    ///         unit; below one candle's share only when it is the whole pending balance; `maxBatchId` is an
+    ///         upper bound. The quote equals what dispatch does, and a refused dispatch changes nothing.
+    function testFuzz_dispatchClampMinimumAndBatchBoundMatchModel(
+        uint8 candleSeed,
+        uint96 firstSeed,
+        uint256 requestSeed,
+        uint8 boundSeed
+    ) public {
+        uint256 n = bound(candleSeed, 1, 50);
+        _buy(n, 0, "");
+        uint256 first = bound(firstSeed, 0, n * 0.3e18);
+        if (first >= 0.3e18) {
+            vm.prank(bob);
+            treasury.dispatch{value: 0.001 ether}(first, 1);
+        }
+        uint256 pending = treasury.pendingBurn();
+        uint256 inTransit = treasury.inTransitBurn();
+        uint256 count = treasury.batchCount();
+        assertEq(pending + inTransit, n * 0.3e18);
+        uint256 request = bound(requestSeed, 0, n * 0.6e18);
+        uint256 capped = request > pending ? pending : request;
+        uint256 amount = capped / 1e12 * 1e12;
+        bool valid = amount != 0 && (amount >= 0.3e18 || amount == pending);
+        bool stale = boundSeed % 4 == 3;
+        uint256 maxBatchId = stale ? count : count + 1 + boundSeed % 3;
+        if (valid) {
+            (uint256 qAmount, uint256 qDust,, uint256 qNext) = treasury.quoteDispatch(request);
+            assertEq(qAmount, amount);
+            assertEq(qDust, capped - amount);
+            assertEq(qNext, count + 1);
+        } else {
+            vm.expectRevert(IMDBurnQueue.InvalidBatch.selector);
+            treasury.quoteDispatch(request);
+        }
+        if (!valid || stale) {
+            vm.expectRevert(IMDBurnQueue.InvalidBatch.selector);
+            treasury.dispatch{value: 0.001 ether}(request, maxBatchId);
+            assertEq(treasury.pendingBurn(), pending);
+            assertEq(treasury.inTransitBurn(), inTransit);
+            assertEq(treasury.batchCount(), count);
+            return;
+        }
+        vm.expectEmit(true, false, false, false, address(treasury));
+        emit IMDBurnQueue.BurnDispatched(count + 1, bytes32(0), amount, capped - amount);
+        uint256 id = treasury.dispatch{value: 0.001 ether}(request, maxBatchId);
+        assertEq(id, count + 1);
+        (bytes32 guid, uint256 recorded, bool confirmed) = treasury.batches(id);
+        assertTrue(guid != bytes32(0));
+        assertEq(recorded, amount);
+        assertFalse(confirmed);
+        assertEq(token.lastAmount(), amount);
+        assertEq(treasury.pendingBurn(), pending - amount);
+        assertEq(treasury.inTransitBurn(), inTransit + amount);
+        assertEq(treasury.pendingBurn() % 1e12, 0, "pending never holds unbridgeable dust");
+        _assertAccounting(n);
+    }
 }

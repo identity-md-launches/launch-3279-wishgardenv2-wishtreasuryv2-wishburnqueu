@@ -134,6 +134,12 @@ contract GardenLifecycleHandler is Test {
         uint256 id = shipments.length + 1;
         uint8 mode = failureSeed % 4;
         if (mode == 3) mode = 4;
+        if (rounded < 0.3e18 && rounded != available) {
+            // A partial split below one candle's share is refused; nothing changes.
+            vm.expectRevert(IMDBurnQueue.InvalidBatch.selector);
+            treasury.dispatch{value: 0.001 ether}(request, id);
+            return;
+        }
         token.setSendMode(mode);
         if (mode != 0) vm.expectRevert();
         treasury.dispatch{value: 0.001 ether}(request, id);
@@ -222,7 +228,7 @@ contract GardenLifecycleHandler is Test {
         Origin memory origin = _origin();
         address caller = treasury.endpoint();
         if (attackSeed % 3 == 0) caller = currentOwner;
-        else if (attackSeed % 3 == 1) origin.srcEid = treasury.ethereumEid();
+        else if (attackSeed % 3 == 1) origin.srcEid = treasury.ETHEREUM_EID();
         else origin.sender = bytes32(uint256(uint160(currentOwner)));
         vm.chainId(1);
         vm.expectRevert(IMDBurnQueue.UnauthenticatedMessage.selector);

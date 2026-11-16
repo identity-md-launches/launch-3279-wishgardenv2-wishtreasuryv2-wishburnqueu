@@ -2,6 +2,23 @@
 
 This contribution adds tests only. Production contracts, deployment configuration, dependencies, scripts, and the existing suites are unchanged. No dependency was installed, no transaction was broadcast, and no real-fund purchase was made.
 
+## Revision for the derived-receiver implementation (commit 13398fa)
+
+The implementation changed after this review was first accepted: `freezeBridge` now takes the Base endpoint, adapter, three gas limits, a salt and evidence, and **derives** the receiver as the CREATE2 address of the compiled `BaseBurnReceiver` bound to the treasury (fixed endpoint ids 30101/30184). Dispatch clamps to the pending balance, refuses partial batches below one candle's share (`MIN_DISPATCH`) and treats the batch id as an upper bound. The receiver now refuses readiness under Base blacklist/max-wallet restrictions. Changes to this suite:
+
+- `ActivationBoundary.t.sol`: the fourteen invalid freeze classes were rewritten for the new arguments (endpoint without code, zero Base endpoint/adapter, adapter equal to IMD or to the Base endpoint, zero evidence, each of three gas limits below/above bounds, token endpoint mismatch, token peer mismatch); every new storage field is checked unchanged after a refusal. New: the prediction equals a real deterministic-deployer deployment for fuzzed salt/gas, and changing queue, salt, endpoint or gas moves the address. New: an identical-code receiver at a non-derived address (plain CREATE, another salt, another treasury's receiver) cannot signal readiness.
+- `BridgeLifecycleInvariant.t.sol`: the dispatch action models the minimum-batch rule (a refused split changes nothing); the forged-origin action uses `ETHEREUM_EID()`.
+- `BridgeAdversarial.t.sol`: new fuzz property comparing `quoteDispatch` and `dispatch` with an independent model of clamp/rounding/minimum/batch-bound rules, including stale bounds and refusals that leave state unchanged.
+- `BaseCreditLimits.t.sol` (new): supplied Base token and adapter runtimes with local storage and Base limits switched on in the token's own storage (slots located with `vm.accesses`). Covers readiness headroom vs `MIN_CREDIT`, an oversized credit reverting inside the actual adapter with nothing consumed, an in-limit credit burned exactly, retry of the oversized packet after limits are lifted with no double counting, and readiness at a wallet's gas under limits.
+
+Three defects found in this revision are reported in `.imd-findings.json` rather than asserted, each with concrete inputs (reproduced in scratch tests against the supplied runtimes):
+
+1. **medium**: IMD sent straight to the receiver uses up its max-wallet headroom. Nothing can burn or release it, so readiness can be blocked for good, or every later credit reverts.
+2. **medium**: anyone can call dispatch, and no limit on batch size stops them from sending the whole pending balance as one batch larger than the Base credit limit.
+3. **low**: readiness ignores the Base token's `tradingActive` flag. With limits on and trading off it signals READY even though every credit fails.
+
+All three only apply while the Base token's limits are in effect. Live Base storage was not read.
+
 ## Added coverage
 
 | File | Evidence |
@@ -50,4 +67,4 @@ FOUNDRY_FUZZ_SEED=0x7554a2451008692ee4ae2ec4178aadddb50df0feb65239512362826da72b
 
 The review adds 28 tests across eight test contracts, including one stateful invariant. Fuzz tests use the repository's 512 runs, except the two independent Unicode byte-string properties, which use 1,000 each. The new invariant uses 256 runs × 96 calls = 24,576 generated handler calls. These settings are in test-source comments only. All executable test dependencies are already supplied in the repository; scratch outputs are not required to build or run the submitted tests.
 
-Final local validation: Foundry 1.8.3 / Solidity 0.8.26; `forge build` succeeded; the full required-seed run completed with **161 tests passed, 0 failed, 0 skipped across 29 suites**. The new invariant completed all 24,576 generated calls with zero unexpected reverts. `forge fmt --check test/review` passed. The compiler's existing source lint warnings remain warnings, not compiler errors. No production or configuration file was changed.
+Final local validation (this revision): Foundry 1.8.3 / Solidity 0.8.26; `forge build` succeeded; the full required-seed run completed with **174 tests passed, 0 failed, 0 skipped across 30 suites**. (Previous round: 161 across 29.) The new invariant completed all 24,576 generated calls with zero unexpected reverts. `forge fmt --check test/review` passed. The compiler's existing source lint warnings remain warnings, not compiler errors. No production or configuration file was changed.
