@@ -1,0 +1,23 @@
+{
+  "kind": "evm_contracts",
+  "contracts": [
+    {
+      "contract": "WishGardenTreasury",
+      "constructorArgs": [
+        "0x48E4E74fE1d0c14404cEB57B9fec5b21329C6ec9"
+      ]
+    },
+    {
+      "contract": "WishGarden",
+      "constructorArgs": [
+        "0x48E4E74fE1d0c14404cEB57B9fec5b21329C6ec9",
+        "$contract:WishGardenTreasury"
+      ]
+    },
+    {
+      "contract": "LegacyWishRegistry",
+      "constructorArgs": []
+    }
+  ],
+  "notes": "Ethereum mainnet, contracts only: existing IMD 0xd34a99bc0f67ae1bbd63c660e6d0b0dd03e263b7, no new token or pool, zero ETH, no initialization calls. Owner 0x48E4E74fE1d0c14404cEB57B9fec5b21329C6ec9 (stated in brief) owns treasury and garden; no factory, tx.origin or IMD ownership. WishGardenTreasury(owner) combines the 30/50/10/10 ledger with the restricted IMD OFT burn queue: 30% is tracked as pending, in-transit and confirmed-burn, dispatchable only through the existing IMD OFT send to a fixed Base receiver, zero ERC20 approvals, gas paid separately, dust retained, unique batch/GUID, idempotent authenticated receipts; no owner withdrawal of burn funds. Owner withdraws only the ecosystem, operations and founder buckets, each with destination/amount events. WishGarden(owner, treasury) sells paid candles only: 1 IMD each, at most 50 per batch, seven styles, permanent records, high-bit namespaced IDs/positions disjoint from legacy garden 0xaabd6a747359f5478803efa7b51e929e62ec4ca2; optional immutable UTF-8 wish (max 280 codepoints/1120 bytes, public-forever acknowledgement flag) stored atomically. No free claims: legacy garden remains the only free-claim ledger. LegacyWishRegistry (no args, fixed legacy garden/treasury constants) lets the recorded legacy purchaser add one missing wish per legacy candle, retryable, no admin; legacy records and locked sink funds stay visible, never mutated or called burned. Deployed disabled: owner must bindGarden, verify official bridge peers/endpoints/encoding/fees/destination credit, separately deploy Base-only BaseBurnReceiver (base/, not in this manifest), freezeBridge, deliver authenticated readiness, then activate. Imported audit findings 8cb9a97d, 744109da, 8986adb4, 01d026b7, ec87fe86 reproduced and fixed with tests by earlier accepted work; 65059822 (stale manifest) resolved by this manifest; 687ff808 is informational. Live bridge settings, Base receiver address and Ethereum deployment remain owner/service steps."
+}
